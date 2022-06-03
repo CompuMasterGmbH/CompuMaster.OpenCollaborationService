@@ -89,15 +89,6 @@ namespace CompuMaster.Ocs.DemoApp
 }
 ```
 
-Unit Tests
-==========
-
-The *owncloud-sharp-test* project contains all unit tests for ownCloud# and relies on the NUnit Framework. In order to perform the unit tests the NUnit NuGet Package is required.
-
-**NOTE:** The *owncloud-sharp-test* project contains a class *TestSettings* that contains the configuration for the ownCloud v.8.2+ server installation to be used for testing. Ideally this should be a development server installation. You can find instructions on how to setup a development installation of ownCloud [here](https://doc.owncloud.org/server/8.2/developer_manual/general/devenv.html).
-
-ownCloud Version 8.2 or higher is required for all tests to complete successfully. This is because the OCS Share API only supports Federated Cloud Shares starting with version 8.2.
-
 ## Many thanks to the contributors
 
 * Bastian Noffer ( [@bnoffer](https://github.com/bnoffer) ) for his initial owncloud-sharp development at https://github.com/bnoffer/owncloud-sharp
