@@ -1,0 +1,70 @@
+name: Publish/Upload dotnet package on release
+
+# PLEASE NOTE: PUBLISHING/DEPLOYMENT
+# Release is to be created manually at GitHub releases management page
+# - release name usually contains "v1.2.3"
+# After creating a GitHub release, following actions will automatically run:
+# 1. NuGet package (version as defined in VS.Net project property "package version")
+# 2. Attaching of compiled binaries to GitHub release
+
+on:
+  release:
+    types: [created]
+
+    # Allows you to run this workflow manually from the Actions tab
+    workflow_dispatch:
+
+env:
+  # Path to the solution file relative to the root of the project.
+  SOLUTION_FILE_PATH: .
+
+  # Name of project configuration for build as well as name of the bin output subdirectory (both must match for "dotnet pack" to find compiled files!)
+  BUILD_CONFIGURATION: Release
+  # Name of build project which creates required output for packaging/deployment
+  BUILD_PROJECT: Ocs/CompuMaster.Ocs.csproj
+  # Name of directory (e.g. "bin") containing the subdirectory (e.g. "CI_CD") with all output files (*.dll)
+  BUILD_OUTPUT_BASEDIR: Ocs/bin
+
+
+jobs:
+    publish:
+        runs-on: windows-latest
+        #if: false # always skip job
+
+        steps:
+            # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+            - name: Checkout
+              uses: actions/checkout@v2
+
+            - name: Setup .NET Core
+              uses: actions/setup-dotnet@v1
+              with:
+                dotnet-version: 5.0.x
+
+            - name: Install dependencies
+              run: dotnet restore
+
+            - name: Build
+              run: dotnet build --configuration=${{env.BUILD_CONFIGURATION}} --no-restore 
+
+            - name: Pack binaries CompuMaster.OpenCollaborationServices
+              run: Compress-Archive -DestinationPath bin.zip ${{env.BUILD_OUTPUT_BASEDIR}}/${{env.BUILD_CONFIGURATION}}
+
+            - name: Publish binaries CompuMaster.OpenCollaborationServices
+              uses: softprops/action-gh-release@v1
+              with:
+                files: "bin.zip"
+              env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Pack CompuMaster.OpenCollaborationServices
+              run: dotnet pack --no-build --configuration=${{env.BUILD_CONFIGURATION}} ${{env.BUILD_PROJECT}} --output .  
+
+            - name: PushNuget CompuMaster.OpenCollaborationServices
+              run: dotnet nuget push *.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate 
+
+            - name: Publish Package Artifacts
+              uses: actions/upload-artifact@v2
+              with:
+                name: Nupkg Artifacts
+                path: ./**/*.nupkg

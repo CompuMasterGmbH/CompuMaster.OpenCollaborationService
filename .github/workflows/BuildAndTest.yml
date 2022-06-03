@@ -1,0 +1,152 @@
+name: Build and Test
+
+# PREREQUISITES FOR PUSH-BACK OF TEST RESULTS
+# Please note: test project usually required nuget package JUnitTestLogger 
+# to be able to provide JUnit compatible test results XML file (required 
+# for pushing back details on succeeded/failed tests)
+# 
+# NuGet install command:
+# - Install-Package JUnitTestLogger
+
+# Controls when the action will run.
+on:
+    # Triggers the workflow on push or pull request events but only for the master branch
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+    # Allows you to run this workflow manually from the Actions tab
+    workflow_dispatch:
+
+env:
+  # Path to the solution file relative to the root of the project
+  SOLUTION_FILE_PATH: .
+
+  # Configuration type to build
+  BUILD_CONFIGURATION: CI_CD
+
+  #BUILD_OUTPUT: Ocs/bin/CI_CD
+  #BUILD_OUTPUT_TEST: Ocs.Tests.Trivial/bin/CI_CD
+
+jobs:
+
+    test:
+        #needs: build
+
+        # Prevent concurrent job runners changing the very same data on the remote DMS test server
+        concurrency: ocs_test_server
+
+        runs-on: ${{ matrix.os }}
+
+        strategy:
+          max-parallel: 1
+          fail-fast: true
+          matrix:
+            #arch: [x86, x86_64, arm]
+            #os: [windows-latest, ubuntu-latest, macos-latest]
+            os: [ubuntu-latest]
+            include: 
+              - os: macos-latest
+                runNetExe: mono
+              #  arch: x86_64
+              #- os: ubuntu-latest
+              #  arch: x86
+              #- os: ubuntu-latest
+              #  arch: x86_64
+              #- os: ubuntu-latest
+              #  arch: arm
+              #- os: windows-latest
+              #  arch: x86
+              #- os: windows-latest
+              #  arch: x86_64
+
+        # the build-and-test job might be skipped, we don't need to run this job then
+        #if: success() || failure()
+
+        env:
+          RESULTS_PATH: TestResults.xml
+          TEST_NEXTCLOUD.ADMINUSER_SERVERURL: ${{ secrets.TEST_NEXTCLOUD_ADMINUSER_SERVERURL}}
+          TEST_NEXTCLOUD.ADMINUSER_USERNAME: ${{ secrets.TEST_NEXTCLOUD_ADMINUSER_USERNAME }}
+          TEST_NEXTCLOUD.ADMINUSER_PASSWORD: ${{ secrets.TEST_NEXTCLOUD_ADMINUSER_PASSWORD }}
+          TEST_NEXTCLOUD.STANDARDUSER_SERVERURL: ${{ secrets.TEST_NEXTCLOUD_STANDARDUSER_SERVERURL}}
+          TEST_NEXTCLOUD.STANDARDUSER_USERNAME: ${{ secrets.TEST_NEXTCLOUD_STANDARDUSER_USERNAME }}
+          TEST_NEXTCLOUD.STANDARDUSER_PASSWORD: ${{ secrets.TEST_NEXTCLOUD_STANDARDUSER_PASSWORD }}
+          TEST_OWNCLOUD.ADMINUSER_SERVERURL: ${{ secrets.TEST_OWNCLOUD_ADMINUSER_SERVERURL }}
+          TEST_OWNCLOUD.ADMINUSER_USERNAME: ${{ secrets.TEST_OWNCLOUD_ADMINUSER_USERNAME }}
+          TEST_OWNCLOUD.ADMINUSER_PASSWORD: ${{ secrets.TEST_OWNCLOUD_ADMINUSER_PASSWORD }}
+          TEST_OWNCLOUD.STANDARDUSER_SERVERURL: ${{ secrets.TEST_OWNCLOUD_STANDARDUSER_SERVERURL }}
+          TEST_OWNCLOUD.STANDARDUSER_USERNAME: ${{ secrets.TEST_OWNCLOUD_STANDARDUSER_USERNAME }}
+          TEST_OWNCLOUD.STANDARDUSER_PASSWORD: ${{ secrets.TEST_OWNCLOUD_STANDARDUSER_PASSWORD }}
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v2
+
+            - name: Setup .NET Core
+              uses: actions/setup-dotnet@v1
+              with:
+                 dotnet-version: 5.0.x
+
+            - name: Dir Listing (Win)
+              if: startsWith(matrix.os, 'windows')
+              run: dir
+            - name: Dir Listing (Linux/Mac)
+              if: (!startsWith(matrix.os, 'windows'))
+              run: ls -la
+
+            - name: unixODBC Driver Listing (Linux/Mac)
+              if: (!startsWith(matrix.os, 'windows'))
+              continue-on-error: true
+              run: odbcinst -q -d
+
+            - name: Install dependencies
+              run: dotnet restore /p:configuration=${{env.BUILD_CONFIGURATION}}
+
+            - name: Build
+              run: dotnet build --configuration=${{env.BUILD_CONFIGURATION}} --no-restore
+
+            - name: Run Unit Tests
+              run: dotnet test --framework net5.0 --results-directory test-results --logger junit --configuration=${{env.BUILD_CONFIGURATION}} --no-restore
+
+            - name: Dir Listing (Win) test-results
+              if: startsWith(matrix.os, 'windows')
+              run: dir test-results
+            - name: Dir Listing (Linux/Mac) test-results
+              if: (!startsWith(matrix.os, 'windows'))
+              run: ls -la test-results
+
+            #Following lines maybe required again after test&dev?!
+            #  # the action is useless on pull_request events
+            #  # (it can not create check runs or pull request comments)
+            #  if: always() #&& startsWith(matrix.os, 'ubuntu') #&& github.event_name != 'pull_request'
+
+            - name: Unit Test Results (Linux)
+              uses: EnricoMi/publish-unit-test-result-action@v1
+              if: always() && startsWith(matrix.os, 'ubuntu')
+              with:
+                github_token: ${{ secrets.GITHUB_TOKEN }}
+                files: "test-results/TestResults.xml"
+                check_run_annotations: all tests
+                comment_title: Unit Test Statistics (${{matrix.os}})
+                check_name: Unit Test Results (${{matrix.os}})
+                report_individual_runs: true
+      
+            - name: Unit Test Results (Win/Mac)
+              uses: EnricoMi/publish-unit-test-result-action/composite@v1
+              if: always() && (!(startsWith(matrix.os, 'ubuntu'))) 
+              with:
+                github_token: ${{ secrets.GITHUB_TOKEN }}
+                files: "test-results/TestResults.xml"
+                check_run_annotations: all tests
+                comment_title: Unit Test Statistics (${{matrix.os}})
+                check_name: Unit Test Results (${{matrix.os}})
+                report_individual_runs: true
+      
+            - name: Publish Unit Test Results
+              uses: actions/upload-artifact@v2
+              if: always()
+              with:
+                name: NUnit Test Results ${{ matrix.os }}
+                path: test-results/TestResults.xml
+
