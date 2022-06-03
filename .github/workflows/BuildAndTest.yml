@@ -46,7 +46,7 @@ jobs:
             #arch: [x86, x86_64, arm]
             #os: [windows-latest, ubuntu-latest, macos-latest]
             os: [ubuntu-latest]
-            include: 
+            #include: 
               #- os: macos-latest
               #  runNetExe: mono
               #  arch: x86_64
