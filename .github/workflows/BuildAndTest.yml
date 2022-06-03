@@ -47,8 +47,8 @@ jobs:
             #os: [windows-latest, ubuntu-latest, macos-latest]
             os: [ubuntu-latest]
             include: 
-              - os: macos-latest
-                runNetExe: mono
+              #- os: macos-latest
+              #  runNetExe: mono
               #  arch: x86_64
               #- os: ubuntu-latest
               #  arch: x86
