@@ -10,6 +10,8 @@
     <PackageIcon>logo_64x64.png</PackageIcon>
     <PackageIconUrl />
     <PackageTags>NextCloud OwnCloud Open Collaboration Services OCS WebDAV API Sharing Administration</PackageTags>
+	<Description>A client for OwnCloud, NextCloud and any other OCS compatible cloud server using Open Collaboration Services</Description>
+    <PackageProjectUrl>https://github.com/CompuMasterGmbH/CompuMaster.OpenCollaborationService</PackageProjectUrl>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
