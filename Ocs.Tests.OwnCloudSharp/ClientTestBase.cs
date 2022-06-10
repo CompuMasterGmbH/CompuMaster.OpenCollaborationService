@@ -3,19 +3,32 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 
-using owncloudsharp;
+using CompuMaster.Ocs;
+using CompuMaster.Ocs.Core;
 
-namespace owncloudsharp.Tests
+namespace CompuMaster.Ocs.OwnCloudSharpTests
 {
 	/// <summary>
-	/// Tests the ownCloud# client.
-	/// 
-	/// NOTE: A ownCloud 8.2 installation is required for successful testing.
-	/// NOTE: Before testing setup the ownCloud Server URL, Username and Password in TestSettings.cs
+	/// Tests the ownCloud# client
 	/// </summary>
-	[TestFixture ()]
-	public class ClientTest
+	/// <remarks>
+	/// OCS API Standard: https://www.freedesktop.org/wiki/Specifications/open-collaboration-services-1.7/
+	/// </remarks>
+	[TestFixture (Explicit = true, Category = "OCS Admin-API", Reason = "Manual check only since too many/unsafe administration changes")]
+	public abstract class ClientTestBase
 	{
+		protected ClientTestBase(CompuMaster.Ocs.Test.SettingsBase settings)
+        {
+			this.Settings = settings;
+			this.TestSettings = new CompuMaster.Ocs.OwnCloudSharpTests.TestSettings(Settings);
+		}
+
+		protected CompuMaster.Ocs.Test.SettingsBase Settings;
+		protected CompuMaster.Ocs.OwnCloudSharpTests.TestSettings TestSettings;
+
+		public const string testFileName = "/CM.Ocs.owncloud-sharp-test.txt";
+		public const string testDirName = "/CM.Ocs.owncloud-sharp-test-folder";
+
 		#region Members
 		/// <summary>
 		/// ownCloud# instance.
@@ -31,23 +44,38 @@ namespace owncloudsharp.Tests
 		/// <summary>
 		/// Init this test parameters.
 		/// </summary>
-		[TestFixtureSetUp]
+		[OneTimeSetUp]
 		public void Init()
 		{
-			c = new Client (TestSettings.ownCloudInstanceUrl, TestSettings.ownCloudUser, TestSettings.ownCloudPassword);
-			payloadData = System.Text.Encoding.UTF8.GetBytes ("owncloud# NUnit Payload\r\nPlease feel free to delete");
-			if (!c.UserExists("sharetest"))
-				c.CreateUser ("sharetest", "test");
-			if (!c.GroupExists("testgroup"))
-				c.CreateGroup ("testgroup");
-			if (!c.IsUserInGroup("sharetest", "testgroup"))
-				c.AddUserToGroup ("sharetest", "testgroup");
+			c = new Client(TestSettings.ownCloudInstanceUrl, TestSettings.ownCloudUser, TestSettings.ownCloudPassword);
+			payloadData = System.Text.Encoding.UTF8.GetBytes("owncloud# NUnit Payload\r\nPlease feel free to delete");
+			try
+			{
+				if (!c.Exists("/")) throw new Exception("Root directory not found");
+			}
+			catch (CompuMaster.Ocs.Exceptions.OCSResponseError ex)
+			{
+				throw new Exception("Login user not authorized for root directory access: (status code: " + ex.StatusCode + ")", ex);
+			}
+			try
+			{
+				if (!c.UserExists("sharetest"))
+					c.CreateUser("sharetest", "test");
+				if (!c.GroupExists("testgroup"))
+					c.CreateGroup("testgroup");
+				if (!c.IsUserInGroup("sharetest", "testgroup"))
+					c.AddUserToGroup("sharetest", "testgroup");
+			}
+			catch (CompuMaster.Ocs.Exceptions.OCSResponseError ex)
+            {
+				throw new Exception("Login user not authorized to manage users/groups (status code: " + ex.StatusCode + ")", ex);
+            }
 		}
 
 		/// <summary>
 		/// Cleanup test data.
 		/// </summary>
-		[TestFixtureTearDown]
+		[OneTimeTearDown]
 		public void Cleanup()
 		{
 			#region DAV Test CleanUp
@@ -762,15 +790,20 @@ namespace owncloudsharp.Tests
 		/// </summary>
 		[Test ()]
 		public void GetApp() {
-			var result = c.GetApp ("files");
-			Assert.NotNull (result);
-			Assert.IsNotEmpty (result.Id);
+			var result = c.GetApp("files");
+			Assert.NotNull(result);
+			Assert.IsNotEmpty(result.Id);
+			System.Console.WriteLine("AppInfo " + result.Name + " DefaultEnable=" + result.DefaultEnable)
+			result = c.GetApp("news");
+			Assert.NotNull(result);
+			Assert.IsNotEmpty(result.Id);
+			System.Console.WriteLine("AppInfo " + result.Name + " DefaultEnable=" + result.DefaultEnable)
 		}
 
 		/// <summary>
 		/// Test EnableApp.
 		/// </summary>
-		[Test ()]
+		[Test (), Explicit(@"App ""news"" will change its status to enabled")]
 		public void EnableApp() {
 			var result = c.EnableApp ("news");
 			Assert.True (result);
@@ -779,7 +812,7 @@ namespace owncloudsharp.Tests
 		/// <summary>
 		/// Test DisableApp.
 		/// </summary>
-		[Test ()]
+		[Test(), Explicit(@"App ""news"" will change its status to disabled")]
 		public void DisableApp() {
 			var result = c.DisableApp ("news");
 			Assert.True (result);

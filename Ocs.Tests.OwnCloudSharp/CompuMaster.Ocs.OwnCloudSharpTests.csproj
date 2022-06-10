@@ -1,0 +1,38 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <RootNamespace>CompuMaster.Ocs.OwnCloudSharpTests</RootNamespace>
+    <AssemblyName>CompuMaster.Ocs.OwnCloudSharpTests</AssemblyName>
+
+    <IsPackable>false</IsPackable>
+
+    <Company>CompuMaster GmbH</Company>
+
+    <Authors>Jochen Wezel</Authors>
+
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Description>Unit tests for project owncloud-sharp.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="ClientTestBase.cs" />
+    <Compile Remove="NextCloudClientTest.cs" />
+    <Compile Remove="OwnCloudClientTest.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="JUnitTestLogger4GitHub" Version="1.1.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />
+    <PackageReference Include="NUnit" Version="3.13.3" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.2.1" />
+    <PackageReference Include="NUnit.Analyzers" Version="3.3.0" />
+    <PackageReference Include="coverlet.collector" Version="3.1.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ocs\CompuMaster.Ocs.csproj" />
+    <ProjectReference Include="..\Ocs.Tests.Trivial\CompuMaster.Ocs.TrivialTests.vbproj" />
+  </ItemGroup>
+
+</Project>

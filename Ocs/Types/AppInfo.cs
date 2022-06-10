@@ -17,7 +17,7 @@ namespace CompuMaster.Ocs.Types
 		/// Gets or sets the name.
 		/// </summary>
 		/// <value>The name.</value>
-		public string Name { get; set; }
+		public string DisplayName { get; set; }
 		/// <summary>
 		/// Gets or sets the description.
 		/// </summary>

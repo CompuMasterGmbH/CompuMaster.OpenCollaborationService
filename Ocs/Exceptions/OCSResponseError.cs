@@ -1,29 +1,36 @@
 ﻿using System;
+using System.Diagnostics;
+using System.Net;
 
 namespace CompuMaster.Ocs.Exceptions
 {
 	/// <summary>
-	/// OCS API response error.
+	/// OCS API response error
 	/// </summary>
-	public class OCSResponseError : ResponseError
+	public class OCSResponseError : Exception
 	{
 		/// <summary>
-		/// Initializes a new instance of the <see cref="CompuMaster.Ocs.Exceptions.OCSResponseError"/> class.
+		/// Gets the OCS status code associated with the error.
 		/// </summary>
-		public OCSResponseError () : base()	{ }
+		/// <value>The status code.</value>
+		public string OcsStatusCode { get; }
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="CompuMaster.Ocs.Exceptions.OCSResponseError"/> class.
+		/// Gets the HTTP status code associated with the error.
 		/// </summary>
-		/// <param name="message">The message that describes the error.</param>
-		public OCSResponseError (string message) : base(message) { }
+		/// <value>The status code.</value>
+		public HttpStatusCode HttpStatusCode { get; }
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="CompuMaster.Ocs.Exceptions.OCSResponseError"/> class.
+		/// Initializes a new instance of the <see cref="CompuMaster.Ocs.Exceptions.ResponseError"/> class.
 		/// </summary>
 		/// <param name="message">The message that describes the error.</param>
-		/// <param name="statusCode">Status code associated to the error.</param>
-		public OCSResponseError (string message, string statusCode) : base(message, statusCode) { }
+		/// <param name="statusCode">OCS status code associated to the error.</param>
+		public OCSResponseError(string message, string ocsStatusCode, HttpStatusCode httpStatusCode) : base(ocsStatusCode + " " + message)
+		{
+			this.OcsStatusCode = ocsStatusCode;
+			Debug.WriteLine("ERROR - OCS-StatusCode: " + this.OcsStatusCode + " - HTTP-StatusCode: " + this.HttpStatusCode + " - Message: " + this.Message);
+		}
 	}
 }
 

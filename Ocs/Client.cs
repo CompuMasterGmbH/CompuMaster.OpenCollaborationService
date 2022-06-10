@@ -25,15 +25,15 @@ namespace CompuMaster.Ocs
     {
         #region Members
         /// <summary>
-        /// RestSharp instance.
+        /// RestSharp instance
         /// </summary>
         private RestClient rest;
         /// <summary>
-        /// WebDavNet instance.
+        /// WebDavNet instance
         /// </summary>
         private IWebDavClient dav;
         /// <summary>
-        /// ownCloud Base URL.
+        /// Base URL (e.g. http://server.mydomain/, http://server.mydomain/owncloud)
         /// </summary>
         private string url;
         /// <summary>
@@ -41,31 +41,35 @@ namespace CompuMaster.Ocs
         /// </summary>
         private string user_id;
         /// <summary>
-        /// ownCloud WebDAV access path.
+        /// WebDAV access path
         /// </summary>
         private const string davpath = "remote.php/webdav";
         /// <summary>
-        /// ownCloud OCS API access path.
+        /// OCS API access path
         /// </summary>
         private const string ocspath = "ocs/v1.php/";
         /// <summary>
-        /// OCS Share API path.
+        /// OCS Share API path
         /// </summary>
         private const string ocsServiceShare = "apps/files_sharing/api/v1";
         private const string ocsServiceData = "privatedata";
         /// <summary>
-        /// OCS Provisioning API path.
+        /// OCS Provisioning API path
         /// </summary>
         private const string ocsServiceCloud = "cloud";
+        /// <summary>
+        /// 
+        /// </summary>
+        public readonly char DirectorySeparatorChar = '/';
         #endregion
 
         #region Constructor
         /// <summary>
         /// Initializes a new instance of the <see cref="CompuMaster.Ocs.Client"/> class.
         /// </summary>
-        /// <param name="url">ownCloud instance URL.</param>
-        /// <param name="user_id">User identifier.</param>
-        /// <param name="password">Password.</param>
+        /// <param name="url">ownCloud instance URL</param>
+        /// <param name="user_id">User identifier</param>
+        /// <param name="password">Password</param>
         public Client(string url, string user_id, string password)
         {
             // In case URL has a trailing slash remove it
@@ -103,52 +107,59 @@ namespace CompuMaster.Ocs
 
         #region DAV
         /// <summary>
-        /// List the specified remote path.
+        /// List the children elements of the specified remote path
         /// </summary>
-        /// <param name="path">remote Path.</param>
-        /// <returns>List of Resources.</returns>
+        /// <param name="path">remote Path</param>
+        /// <returns>List of Resources</returns>
         public List<ResourceInfo> List(string path)
         {
+            if (path == null || path == "") throw new ArgumentNullException(nameof(path));
+
             List<ResourceInfo> resources = new List<ResourceInfo>();
             var result = this.dav.Propfind(GetDavUri(path)).Result;
 
             foreach (var item in result.Resources)
             {
-                //if (item == result.Resources[0) // Skip the first element, since it is always the root
-                //	continue;
-
-                ResourceInfo res = new ResourceInfo();
-                if (item.IsCollection) // if resource is a directory set special content type
-                    res.ContentType = "dav/directory";
+                ResourceInfo res = new ResourceInfo(this.ConvertDavPathToPath(item.Uri), item.IsCollection);
+                if (res.FullPath == path)
+                {
+                    //skip element, since it's the list item itself
+                    continue;
+                }
                 else
-                    res.ContentType = item.ContentType;
-                res.Created = item.CreationDate ?? DateTime.MinValue;
-                res.ETag = item.ETag;
-                res.LastModified = item.LastModifiedDate ?? DateTime.MinValue;
-                res.Name = item.DisplayName;
-                res.Size = item.ContentLength;
-                res.Path = new Uri(item.Uri).AbsolutePath.Replace("/" + davpath, "");
-                if (!res.ContentType.Equals("dav/directory")) // if resource not a directory, remove the file name from remote path.
-                    res.Path = res.Path.Replace("/" + res.Name, "");
-                resources.Add(res);
+                {
+                    //regular child item 
+                    if (item.IsCollection) // if resource is a directory set special content type
+                        res.ContentType = "dav/directory";
+                    else
+                        res.ContentType = item.ContentType;
+                    res.Created = item.CreationDate ?? DateTime.MinValue;
+                    res.ETag = item.ETag;
+                    res.LastModified = item.LastModifiedDate ?? DateTime.MinValue;
+                    res.DisplayName = item.DisplayName;
+                    res.Size = item.ContentLength;
+                    resources.Add(res);
+                }
             }
 
             return resources;
         }
 
         /// <summary>
-        /// Gets the resource info for the remote path.
+        /// Gets the resource info for the remote path
         /// </summary>
-        /// <returns>The resource info.</returns>
-        /// <param name="path">remote Path.</param>
+        /// <returns>The resource info</returns>
+        /// <param name="path">remote Path</param>
         public ResourceInfo GetResourceInfo(string path)
         {
+            if (path == null || path == "") throw new ArgumentNullException(nameof(path));
+
             var result = this.dav.Propfind(GetDavUri(path)).Result;
 
             if (result.Resources.Count > 0)
             {
                 var item = result.Resources.FirstOrDefault();
-                ResourceInfo res = new ResourceInfo();
+                ResourceInfo res = new ResourceInfo(this.ConvertDavPathToPath(item.Uri), item.IsCollection);
                 if (item.IsCollection) // if resource is a directory set special content type
                     res.ContentType = "dav/directory";
                 else
@@ -156,55 +167,66 @@ namespace CompuMaster.Ocs
                 res.Created = item.CreationDate ?? DateTime.MinValue;
                 res.ETag = item.ETag;
                 res.LastModified = item.LastModifiedDate ?? DateTime.MinValue;
-                res.Name = item.DisplayName;
+                res.DisplayName = item.DisplayName;
                 res.Size = item.ContentLength;
-                res.Path = new Uri(item.Uri).AbsolutePath.Replace("/" + davpath, "");
-                if (!res.ContentType.Equals("dav/directory")) // if resource not a directory, remove the file name from remote path.
-                    res.Path = res.Path.Replace("/" + res.Name, "");
                 return res;
             }
 
             return null;
         }
 
+        private string DavPathPreRootDir { get => GetDavUri("").AbsolutePath; }
+        private string ConvertDavPathToPath(string davPath)
+        {
+            string cutOffPath = this.DavPathPreRootDir;
+            if (davPath.StartsWith(cutOffPath))
+            {
+                return System.Net.WebUtility.UrlDecode( davPath.Substring(cutOffPath.Length));
+            }
+            else
+            {
+                throw new InvalidOperationException(@"DAV path """ + davPath + @""" can't be converted to regular path with prefixPath=""" + cutOffPath + @"""");
+            }
+        }
+
         /// <summary>
-        /// Download the specified file.
+        /// Download the specified file
         /// </summary>
-        /// <param name="path">File remote Path.</param>
-        /// <returns>File contents.</returns>
+        /// <param name="path">File remote Path</param>
+        /// <returns>File contents</returns>
         public Stream Download(string path)
         {
             return dav.GetRawFile(GetDavUri(path)).Result.Stream;
         }
 
         /// <summary>
-        /// Upload the specified file to the specified path.
+        /// Upload the specified file to the specified path
         /// </summary>
-        /// <param name="path">remote Path.</param>
-        /// <param name="data">File contents.</param>
-        /// <param name="contentType">File content type.</param>
-        /// <returns><c>true</c>, if upload successful, <c>false</c> otherwise.</returns>
+        /// <param name="path">remote Path</param>
+        /// <param name="data">File contents</param>
+        /// <param name="contentType">File content type</param>
+        /// <returns><c>true</c>, if upload successful, <c>false</c> otherwise</returns>
         public bool Upload(string path, Stream data, string contentType)
         {
             return dav.PutFile(GetDavUri(path), data, contentType).Result.IsSuccessful;
         }
 
         /// <summary>
-        /// Upload the specified file to the specified path.
+        /// Upload the specified file to the specified path
         /// </summary>
-        /// <param name="path">remote Path.</param>
-        /// <param name="data">File contents.</param>
-        /// <returns><c>true</c>, if upload successful, <c>false</c> otherwise.</returns>
+        /// <param name="path">remote Path</param>
+        /// <param name="data">File contents</param>
+        /// <returns><c>true</c>, if upload successful, <c>false</c> otherwise</returns>
         public bool Upload(string path, Stream data)
         {
             return dav.PutFile(GetDavUri(path), data).Result.IsSuccessful;
         }
 
         /// <summary>
-        /// Checks if the specified remote path exists.
+        /// Checks if the specified remote path exists
         /// </summary>
-        /// <param name="path">remote Path.</param>
-        /// <returns><c>true</c>, if remote path exists, <c>false</c> otherwise.</returns>
+        /// <param name="path">remote Path</param>
+        /// <returns><c>true</c>, if remote path exists, <c>false</c> otherwise</returns>
         public bool Exists(string path)
         {
             var result = this.dav.Propfind(GetDavUri(path)).Result;
@@ -213,56 +235,54 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Creates a new directory at remote path.
+        /// Creates a new directory at remote path
         /// </summary>
-        /// <returns><c>true</c>, if directory was created, <c>false</c> otherwise.</returns>
-        /// <param name="path">remote Path.</param>
+        /// <returns><c>true</c>, if directory was created, <c>false</c> otherwise</returns>
+        /// <param name="path">remote Path</param>
         public bool CreateDirectory(string path)
         {
             return dav.Mkcol(GetDavUri(path)).Result.IsSuccessful;
         }
 
         /// <summary>
-        /// Delete resource at the specified remote path.
+        /// Delete resource at the specified remote path
         /// </summary>
-        /// <param name="path">remote Path.</param>
-        /// <returns><c>true</c>, if resource was deleted, <c>false</c> otherwise.</returns>
+        /// <param name="path">remote Path</param>
+        /// <returns><c>true</c>, if resource was deleted, <c>false</c> otherwise</returns>
         public bool Delete(string path)
         {
             return dav.Delete(GetDavUri(path)).Result.IsSuccessful;
         }
 
         /// <summary>
-        /// Copy the specified source to destination.
+        /// Copy the specified source to destination
         /// </summary>
-        /// <param name="source">Source resoure path.</param>
-        /// <param name="destination">Destination resource path.</param>
-        /// <returns><c>true</c>, if resource was copied, <c>false</c> otherwise.</returns>
+        /// <param name="source">Source resoure path</param>
+        /// <param name="destination">Destination resource path</param>
+        /// <returns><c>true</c>, if resource was copied, <c>false</c> otherwise</returns>
         public bool Copy(string source, string destination)
         {
             return dav.Copy(GetDavUri(source), GetDavUri(destination)).Result.IsSuccessful;
         }
 
         /// <summary>
-        /// Move the specified source and destination.
+        /// Move the specified source and destination
         /// </summary>
-        /// <param name="source">Source resource path.</param>
-        /// <param name="destination">Destination resource path.</param>
-        /// <returns><c>true</c>, if resource was moved, <c>false</c> otherwise.</returns>
+        /// <param name="source">Source resource path</param>
+        /// <param name="destination">Destination resource path</param>
+        /// <returns><c>true</c>, if resource was moved, <c>false</c> otherwise</returns>
         public bool Move(string source, string destination)
         {
             return dav.Move(GetDavUri(source), GetDavUri(destination)).Result.IsSuccessful;
         }
 
         /// <summary>
-        /// Downloads a remote directory as zip.
+        /// Downloads a remote directory as zip (might work only for OwnCloud/Nextcloud due to specialized behaviour)
         /// </summary>
-        /// <returns>The directory as zip.</returns>
-        /// <param name="path">path to the remote directory to download.</param>
+        /// <returns>The directory as zip</returns>
+        /// <param name="path">path to the remote directory to download</param>
         public Stream DownloadDirectoryAsZip(string path)
         {
-           
-
             var uri = GetUri("index.php/apps/files/ajax/download.php?dir=" + WebUtility.UrlEncode(path));
             return dav.GetRawFile(uri).Result.Stream;
         }
@@ -273,7 +293,7 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// List all remote shares.
         /// </summary>
-        /// <returns>List of remote shares.</returns>
+        /// <returns>List of remote shares</returns>
         public object ListOpenRemoteShare()
         {
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "remote_shares"), Method.Get);
@@ -290,8 +310,8 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Accepts a remote share
         /// </summary>
-        /// <returns><c>true</c>, if remote share was accepted, <c>false</c> otherwise.</returns>
-        /// <param name="shareId">Share identifier.</param>
+        /// <returns><c>true</c>, if remote share was accepted, <c>false</c> otherwise</returns>
+        /// <param name="shareId">Share identifier</param>
         public bool AcceptRemoteShare(int shareId)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "remote_shares") + "/{id}", Method.Post);
@@ -305,7 +325,7 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
@@ -314,8 +334,8 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Declines a remote share.
         /// </summary>
-        /// <returns><c>true</c>, if remote share was declined, <c>false</c> otherwise.</returns>
-        /// <param name="shareId">Share identifier.</param>
+        /// <returns><c>true</c>, if remote share was declined, <c>false</c> otherwise</returns>
+        /// <param name="shareId">Share identifier</param>
         public bool DeclineRemoteShare(int shareId)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "remote_shares") + "/{id}", Method.Delete);
@@ -329,7 +349,7 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
@@ -338,10 +358,10 @@ namespace CompuMaster.Ocs
 
         #region SHares
         /// <summary>
-        /// Unshares a file or directory.
+        /// Unshares a file or directory
         /// </summary>
-        /// <returns><c>true</c>, if share was deleted, <c>false</c> otherwise.</returns>
-        /// <param name="shareId">Share identifier.</param>
+        /// <returns><c>true</c>, if share was deleted, <c>false</c> otherwise</returns>
+        /// <param name="shareId">Share identifier</param>
         public bool DeleteShare(int shareId)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "shares") + "/{id}", Method.Delete);
@@ -355,20 +375,20 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
         }
 
         /// <summary>
-        /// Updates a given share. NOTE: Only one of the update parameters can be specified at once.
+        /// Updates a given share. NOTE: Only one of the update parameters can be specified at once
         /// </summary>
-        /// <returns><c>true</c>, if share was updated, <c>false</c> otherwise.</returns>
-        /// <param name="shareId">Share identifier.</param>
-        /// <param name="perms">(optional) update permissions.</param>
-        /// <param name="password">(optional) updated password for public link Share.</param>
-        /// <param name="public_upload">(optional) If set to <c>true</c> enables public upload for public shares.</param>
+        /// <returns><c>true</c>, if share was updated, <c>false</c> otherwise</returns>
+        /// <param name="shareId">Share identifier</param>
+        /// <param name="perms">(optional) update permissions</param>
+        /// <param name="password">(optional) updated password for public link Share</param>
+        /// <param name="public_upload">(optional) If set to <c>true</c> enables public upload for public shares</param>
         public bool UpdateShare(int shareId, int perms = -1, string password = null, OcsBoolParam public_upload = OcsBoolParam.None)
         {
             if ((perms == Convert.ToInt32(OcsPermission.None)) && (password == null) && (public_upload == OcsBoolParam.None))
@@ -394,20 +414,20 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
         }
 
         /// <summary>
-        /// Shares a remote file with link.
+        /// Shares a remote file with link
         /// </summary>
-        /// <returns>instance of PublicShare with the share info.</returns>
-        /// <param name="path">path to the remote file to share.</param>
-        /// <param name="perms">(optional) permission of the shared object.</param>
-        /// <param name="password">(optional) sets a password.</param>
-        /// <param name="public_upload">(optional) allows users to upload files or folders.</param>
+        /// <returns>instance of PublicShare with the share info</returns>
+        /// <param name="path">path to the remote file to share</param>
+        /// <param name="perms">(optional) permission of the shared object</param>
+        /// <param name="password">(optional) sets a password</param>
+        /// <param name="public_upload">(optional) allows users to upload files or folders</param>
         public PublicShare ShareWithLink(string path, int perms = -1, string password = null, OcsBoolParam public_upload = OcsBoolParam.None)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "shares"), Method.Post);
@@ -440,13 +460,13 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Shares a remote file with specified user.
+        /// Shares a remote file with specified user
         /// </summary>
-        /// <returns>instance of UserShare with the share info.</returns>
-        /// <param name="path">path to the remote file to share.</param>
-        /// <param name="username">name of the user whom we want to share a file/folder.</param>
-        /// <param name="perms">permissions of the shared object.</param>
-        /// <param name="remoteUser">Remote user.</param>
+        /// <returns>instance of UserShare with the share info</returns>
+        /// <param name="path">path to the remote file to share</param>
+        /// <param name="username">name of the user whom we want to share a file/folder</param>
+        /// <param name="perms">permissions of the shared object</param>
+        /// <param name="remoteUser">Remote user</param>
         public UserShare ShareWithUser(string path, string username, int perms = -1, OcsBoolParam remoteUser = OcsBoolParam.None)
         {
             if ((perms == -1) || (perms > Convert.ToInt32(OcsPermission.All)) || (username == null) || (username.Equals("")))
@@ -480,12 +500,12 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Shares a remote file with specified group.
+        /// Shares a remote file with specified group
         /// </summary>
-        /// <returns>instance of GroupShare with the share info.</returns>
-        /// <param name="path">path to the remote file to share.</param>
-        /// <param name="groupName">name of the group whom we want to share a file/folder.</param>
-        /// <param name="perms">permissions of the shared object.</param>
+        /// <returns>instance of GroupShare with the share info</returns>
+        /// <param name="path">path to the remote file to share</param>
+        /// <param name="groupName">name of the group whom we want to share a file/folder</param>
+        /// <param name="perms">permissions of the shared object</param>
         public GroupShare ShareWithGroup(string path, string groupName, int perms = -1)
         {
             if ((perms == -1) || (perms > Convert.ToInt32(OcsPermission.All)) || (groupName == null) || (groupName.Equals("")))
@@ -516,10 +536,10 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Checks whether a path is already shared.
+        /// Checks whether a path is already shared
         /// </summary>
-        /// <returns><c>true</c> if this instance is shared the specified path; otherwise, <c>false</c>.</returns>
-        /// <param name="path">path to the share to be checked.</param>
+        /// <returns><c>true</c> if this instance is shared the specified path; otherwise, <c>false</c></returns>
+        /// <param name="path">path to the share to be checked</param>
         public bool IsShared(string path)
         {
             var result = GetShares(path);
@@ -529,10 +549,10 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Gets all shares for the current user when <c>path</c> is not set, otherwise it gets shares for the specific file or folder
         /// </summary>
-        /// <returns>array of shares or empty array if the operation failed.</returns>
-        /// <param name="path">(optional) path to the share to be checked.</param>
-        /// <param name="reshares">(optional) returns not only the shares from	the current user but all shares from the given file.</param>
-        /// <param name="subfiles">(optional) returns all shares within	a folder, given that path defines a folder.</param>
+        /// <returns>array of shares or empty array if the operation failed</returns>
+        /// <param name="path">(optional) path to the share to be checked</param>
+        /// <param name="reshares">(optional) returns not only the shares from	the current user but all shares from the given file</param>
+        /// <param name="subfiles">(optional) returns all shares within	a folder, given that path defines a folder</param>
         public List<Share> GetShares(string path, OcsBoolParam reshares = OcsBoolParam.None, OcsBoolParam subfiles = OcsBoolParam.None)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "shares"), Method.Get);
@@ -561,9 +581,9 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Create a new user with an initial password via provisioning API.
         /// </summary>
-        /// <returns><c>true</c>, if user was created, <c>false</c> otherwise.</returns>
-        /// <param name="username">name of user to be created.</param>
-        /// <param name="initialPassword">password for user being created.</param> 
+        /// <returns><c>true</c>, if user was created, <c>false</c> otherwise</returns>
+        /// <param name="username">name of user to be created</param>
+        /// <param name="initialPassword">password for user being created</param> 
         public bool CreateUser(string username, string initialPassword)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users"), Method.Post);
@@ -578,7 +598,7 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
@@ -587,8 +607,8 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Deletes a user via provisioning API.
         /// </summary>
-        /// <returns><c>true</c>, if user was deleted, <c>false</c> otherwise.</returns>
-        /// <param name="username">name of user to be deleted.</param>
+        /// <returns><c>true</c>, if user was deleted, <c>false</c> otherwise</returns>
+        /// <param name="username">name of user to be deleted</param>
         public bool DeleteUser(string username)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}", Method.Delete);
@@ -603,7 +623,7 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
@@ -612,8 +632,8 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Checks a user via provisioning API.
         /// </summary>
-        /// <returns><c>true</c>, if exists was usered, <c>false</c> otherwise.</returns>
-        /// <param name="username">name of user to be checked.</param>
+        /// <returns><c>true</c>, if exists was usered, <c>false</c> otherwise</returns>
+        /// <param name="username">name of user to be checked</param>
         public bool UserExists(string username)
         {
             var result = SearchUsers(username);
@@ -623,8 +643,8 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Searches for users via provisioning API.
         /// </summary>
-        /// <returns>list of users.</returns>
-        /// <param name="username">name of user to be searched for.</param>
+        /// <returns>list of users</returns>
+        /// <param name="username">name of user to be searched for</param>
         public List<string> SearchUsers()
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users"), Method.Get);
@@ -640,8 +660,8 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Searches for users via provisioning API.
         /// </summary>
-        /// <returns>list of users.</returns>
-        /// <param name="username">name of user to be searched for.</param>
+        /// <returns>list of users</returns>
+        /// <param name="username">name of user to be searched for</param>
         public List<string> SearchUsers(string username)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "?search={userid}", Method.Get);
@@ -687,8 +707,8 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Gets the user's attributes.
         /// </summary>
-        /// <returns>The user attributes.</returns>
-        /// <param name="username">Username.</param>
+        /// <returns>The user attributes</returns>
+        /// <param name="username">Username</param>
         public User GetUserAttributes(string username)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}", Method.Get);
@@ -707,10 +727,10 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Sets a user attribute. See https://doc.owncloud.com/server/7.0EE/admin_manual/configuration_auth_backends/user_provisioning_api.html#users-edituser for reference.
         /// </summary>
-        /// <returns><c>true</c>, if user attribute was set, <c>false</c> otherwise.</returns>
-        /// <param name="username">name of user to modify.</param>
-        /// <param name="key">key of the attribute to set.</param>
-        /// <param name="value">value to set.</param>
+        /// <returns><c>true</c>, if user attribute was set, <c>false</c> otherwise</returns>
+        /// <param name="username">name of user to modify</param>
+        /// <param name="key">key of the attribute to set</param>
+        /// <param name="value">value to set</param>
         public bool SetUserAttribute(string username, OCSUserAttributeKey key, string value)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}", Method.Put);
@@ -722,23 +742,16 @@ namespace CompuMaster.Ocs
             request.AddParameter("value", value);
 
             var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
-            }
-
-            return false;
+            CheckOcsStatus(response);
+            return true;
         }
 
         /// <summary>
         /// Adds a user to a group.
         /// </summary>
-        /// <returns><c>true</c>, if user was added to group, <c>false</c> otherwise.</returns>
-        /// <param name="username">name of user to be added.</param>
-        /// <param name="groupName">name of group user is to be added to.</param>
+        /// <returns><c>true</c>, if user was added to group, <c>false</c> otherwise</returns>
+        /// <param name="username">name of user to be added</param>
+        /// <param name="groupName">name of group user is to be added to</param>
         public bool AddUserToGroup(string username, string groupName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}/groups", Method.Post);
@@ -754,7 +767,7 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
@@ -763,8 +776,8 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Get a list of groups associated to a user.
         /// </summary>
-        /// <returns>list of groups.</returns>
-        /// <param name="username">name of user to list groups.</param>
+        /// <returns>list of groups</returns>
+        /// <param name="username">name of user to list groups</param>
         public List<string> GetUserGroups(string username)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}/groups", Method.Get);
@@ -783,9 +796,9 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Check if a user is in a group.
         /// </summary>
-        /// <returns><c>true</c>, if user is in group, <c>false</c> otherwise.</returns>
-        /// <param name="username">name of user.</param>
-        /// <param name="groupName">name of group.</param>
+        /// <returns><c>true</c>, if user is in group, <c>false</c> otherwise</returns>
+        /// <param name="username">name of user</param>
+        /// <param name="groupName">name of group</param>
         public bool IsUserInGroup(string username, string groupName)
         {
             var groups = GetUserGroups(username);
@@ -795,9 +808,9 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Removes a user from a group.
         /// </summary>
-        /// <returns><c>true</c>, if user was removed from group, <c>false</c> otherwise.</returns>
-        /// <param name="username">name of user to be removed.</param>
-        /// <param name="groupName">name of group user is to be removed from.</param>
+        /// <returns><c>true</c>, if user was removed from group, <c>false</c> otherwise</returns>
+        /// <param name="username">name of user to be removed</param>
+        /// <param name="groupName">name of group user is to be removed from</param>
         public bool RemoveUserFromGroup(string username, string groupName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}/groups", Method.Delete);
@@ -813,7 +826,7 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
@@ -822,9 +835,9 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Adds a user to a subadmin group.
         /// </summary>
-        /// <returns><c>true</c>, if user was added to sub admin group, <c>false</c> otherwise.</returns>
-        /// <param name="username">name of user to be added to subadmin group.</param>
-        /// <param name="groupName">name of subadmin group.</param>
+        /// <returns><c>true</c>, if user was added to sub admin group, <c>false</c> otherwise</returns>
+        /// <param name="username">name of user to be added to subadmin group</param>
+        /// <param name="groupName">name of subadmin group</param>
         public bool AddUserToSubAdminGroup(string username, string groupName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}/subadmins", Method.Post);
@@ -840,7 +853,7 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
@@ -849,8 +862,8 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Get a list of subadmin groups associated to a user.
         /// </summary>
-        /// <returns>list of subadmin groups.</returns>
-        /// <param name="username">name of user.</param>
+        /// <returns>list of subadmin groups</returns>
+        /// <param name="username">name of user</param>
         public List<string> GetUserSubAdminGroups(string username)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}/subadmins", Method.Get);
@@ -867,7 +880,7 @@ namespace CompuMaster.Ocs
             }
             catch (OCSResponseError ocserr)
             {
-                if (ocserr.StatusCode.Equals("102")) // empty response results in a OCS 102 Error
+                if (ocserr.OcsStatusCode.Equals("102")) // empty response results in a OCS 102 Error
                     return new List<string>();
             }
 
@@ -877,9 +890,9 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Check if a user is in a subadmin group.
         /// </summary>
-        /// <returns><c>true</c>, if user is in sub admin group, <c>false</c> otherwise.</returns>
-        /// <param name="username">name of user.</param>
-        /// <param name="groupNname">name of subadmin group.</param>
+        /// <returns><c>true</c>, if user is in sub admin group, <c>false</c> otherwise</returns>
+        /// <param name="username">name of user</param>
+        /// <param name="groupNname">name of subadmin group</param>
         public bool IsUserInSubAdminGroup(string username, string groupNname)
         {
             var groups = GetUserSubAdminGroups(username);
@@ -889,9 +902,9 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Removes the user from sub admin group.
         /// </summary>
-        /// <returns><c>true</c>, if user from sub admin group was removed, <c>false</c> otherwise.</returns>
-        /// <param name="username">Username.</param>
-        /// <param name="groupName">Group name.</param>
+        /// <returns><c>true</c>, if user from sub admin group was removed, <c>false</c> otherwise</returns>
+        /// <param name="username">Username</param>
+        /// <param name="groupName">Group name</param>
         public bool RemoveUserFromSubAdminGroup(string username, string groupName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}/subadmins", Method.Delete);
@@ -907,7 +920,7 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
@@ -918,8 +931,8 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Create a new group via provisioning API.
         /// </summary>
-        /// <returns><c>true</c>, if group was created, <c>false</c> otherwise.</returns>
-        /// <param name="groupName">name of group to be created.</param>
+        /// <returns><c>true</c>, if group was created, <c>false</c> otherwise</returns>
+        /// <param name="groupName">name of group to be created</param>
         public bool CreateGroup(string groupName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "groups"), Method.Post);
@@ -933,7 +946,7 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
@@ -942,8 +955,8 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Deletes the group.
         /// </summary>
-        /// <returns><c>true</c>, if group was deleted, <c>false</c> otherwise.</returns>
-        /// <param name="groupName">Group name.</param>
+        /// <returns><c>true</c>, if group was deleted, <c>false</c> otherwise</returns>
+        /// <param name="groupName">Group name</param>
         public bool DeleteGroup(string groupName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "groups") + "/{groupid}", Method.Delete);
@@ -958,7 +971,7 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
@@ -967,8 +980,8 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Checks a group via provisioning API.
         /// </summary>
-        /// <returns><c>true</c>, if group exists, <c>false</c> otherwise.</returns>
-        /// <param name="groupName">name of group to be checked.</param>
+        /// <returns><c>true</c>, if group exists, <c>false</c> otherwise</returns>
+        /// <param name="groupName">name of group to be checked</param>
         public bool GroupExists(string groupName)
         {
             var results = SearchGroups(groupName);
@@ -978,8 +991,8 @@ namespace CompuMaster.Ocs
         /// <summary>
 		/// Searches for groups via provisioning API.
 		/// </summary>
-		/// <returns>list of groups.</returns>
-		/// <param name="name">name of group to be searched for.</param>
+		/// <returns>list of groups</returns>
+		/// <param name="name">name of group to be searched for</param>
 		public List<string> SearchGroups(string name)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "groups") + "?search={groupid}", Method.Get);
@@ -998,9 +1011,9 @@ namespace CompuMaster.Ocs
 
         #region Config
         /// <summary>
-        /// Returns ownCloud config information.
+        /// Returns ownCloud config information
         /// </summary>
-        /// <returns>The config.</returns>
+        /// <returns>The config</returns>
         public Config GetConfig()
         {
             var request = new RestRequest(GetOcsPath("", "config"), Method.Get);
@@ -1025,9 +1038,9 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Returns an application attribute
         /// </summary>
-        /// <returns>App Attribute List.</returns>
-        /// <param name="app">application id.</param>
-        /// <param name="key">attribute key or None to retrieve all values for the given application.</param>
+        /// <returns>App Attribute List</returns>
+        /// <param name="app">application id</param>
+        /// <param name="key">attribute key or None to retrieve all values for the given application</param>
         public List<AppAttribute> GetAttribute(string app = "", string key = "")
         {
             var path = "getattribute";
@@ -1049,12 +1062,12 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Sets an application attribute.
+        /// Sets an application attribute
         /// </summary>
-        /// <returns><c>true</c>, if attribute was set, <c>false</c> otherwise.</returns>
-        /// <param name="app">application id.</param>
-        /// <param name="key">key of the attribute to set.</param>
-        /// <param name="value">value to set.</param>
+        /// <returns><c>true</c>, if attribute was set, <c>false</c> otherwise</returns>
+        /// <param name="app">application id</param>
+        /// <param name="key">key of the attribute to set</param>
+        /// <param name="value">value to set</param>
         public bool SetAttribute(string app, string key, string value)
         {
             var path = "setattribute" + "/" + app + "/" + WebUtility.UrlEncode(key);
@@ -1069,18 +1082,18 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
         }
 
         /// <summary>
-        /// Deletes an application attribute.
+        /// Deletes an application attribute
         /// </summary>
-        /// <returns><c>true</c>, if attribute was deleted, <c>false</c> otherwise.</returns>
-        /// <param name="app">application id.</param>
-        /// <param name="key">key of the attribute to delete.</param>
+        /// <returns><c>true</c>, if attribute was deleted, <c>false</c> otherwise</returns>
+        /// <param name="app">application id</param>
+        /// <param name="key">key of the attribute to delete</param>
         public bool DeleteAttribute(string app, string key)
         {
             var path = "deleteattribute" + "/" + app + "/" + WebUtility.UrlEncode(key);
@@ -1094,7 +1107,7 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
@@ -1103,9 +1116,9 @@ namespace CompuMaster.Ocs
 
         #region Apps
         /// <summary>
-        /// List all enabled apps through the provisioning api.
+        /// List all enabled apps through the provisioning api
         /// </summary>
-        /// <returns>a list of apps and their enabled state.</returns>
+        /// <returns>a list of apps and their enabled state</returns>
         public List<string> GetApps()
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "apps"), Method.Get);
@@ -1119,10 +1132,10 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Gets information about the specified app.
+        /// Gets information about the specified app
         /// </summary>
-        /// <returns>App information.</returns>
-        /// <param name="appName">App name.</param>
+        /// <returns>App information</returns>
+        /// <param name="appName">App name</param>
         public AppInfo GetApp(string appName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "apps") + "/{appid}", Method.Get);
@@ -1138,10 +1151,10 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Enable an app through provisioning_api.
+        /// Enable an app through provisioning_api
         /// </summary>
-        /// <returns><c>true</c>, if app was enabled, <c>false</c> otherwise.</returns>
-        /// <param name="appName">Name of app to be enabled.</param>
+        /// <returns><c>true</c>, if app was enabled, <c>false</c> otherwise</returns>
+        /// <param name="appName">Name of app to be enabled</param>
         public bool EnableApp(string appName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "apps") + "/{appid}", Method.Post);
@@ -1156,7 +1169,7 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
@@ -1165,8 +1178,8 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Disable an app through provisioning_api
         /// </summary>
-        /// <returns><c>true</c>, if app was disabled, <c>false</c> otherwise.</returns>
-        /// <param name="appName">Name of app to be disabled.</param>
+        /// <returns><c>true</c>, if app was disabled, <c>false</c> otherwise</returns>
+        /// <param name="appName">Name of app to be disabled</param>
         public bool DisableApp(string appName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "apps") + "/{appid}", Method.Delete);
@@ -1181,7 +1194,7 @@ namespace CompuMaster.Ocs
                 if (response.Data.Meta.StatusCode == 100)
                     return true;
                 else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "");
+                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode + "", response.StatusCode);
             }
 
             return false;
@@ -1191,31 +1204,31 @@ namespace CompuMaster.Ocs
 
         #region Url Handling
         /// <summary>
-        /// Gets the full URI.
+        /// Gets the full URI
         /// </summary>
-        /// <returns>The URI.</returns>
-        /// <param name="path">remote Path.</param>
+        /// <returns>The URI</returns>
+        /// <param name="path">remote Path</param>
         private Uri GetUri(string path)
         {
             return new Uri(this.url + path);
         }
 
         /// <summary>
-        /// Gets the DAV request URI.
+        /// Gets the DAV request URI
         /// </summary>
-        /// <returns>The DAV URI.</returns>
-        /// <param name="path">remote Path.</param>
+        /// <returns>The DAV URI</returns>
+        /// <param name="path">remote Path</param>
         private Uri GetDavUri(string path)
         {
             return new Uri(this.url + "/" + davpath + path);
         }
 
         /// <summary>
-        /// Gets the remote path for OCS API.
+        /// Gets the remote path for OCS API
         /// </summary>
-        /// <returns>The ocs path.</returns>
-        /// <param name="service">Service.</param>
-        /// <param name="action">Action.</param>
+        /// <returns>The ocs path</returns>
+        /// <param name="service">Service</param>
+        /// <param name="action">Action</param>
         private string GetOcsPath(string service, string action)
         {
             var slash = (!service.Equals("")) ? "/" : "";
@@ -1225,11 +1238,11 @@ namespace CompuMaster.Ocs
 
         #region OCS Response parsing
         /// <summary>
-        /// Get element value from OCS Meta.
+        /// Get element value from OCS Meta
         /// </summary>
-        /// <returns>Element value.</returns>
-        /// <param name="response">XML OCS response.</param>
-        /// <param name="elementName">XML Element name.</param>
+        /// <returns>Element value</returns>
+        /// <param name="response">XML OCS response</param>
+        /// <param name="elementName">XML Element name</param>
         private string GetFromMeta(string response, string elementName)
         {
             XDocument xdoc = XDocument.Parse(response);
@@ -1245,11 +1258,11 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Get element value from OCS Data.
+        /// Get element value from OCS Data
         /// </summary>
-        /// <returns>Element value.</returns>
-        /// <param name="response">XML OCS response.</param>
-        /// <param name="elementName">XML Element name.</param>
+        /// <returns>Element value</returns>
+        /// <param name="response">XML OCS response</param>
+        /// <param name="elementName">XML Element name</param>
         private string GetFromData(string response, string elementName)
         {
             XDocument xdoc = XDocument.Parse(response);
@@ -1265,10 +1278,10 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Gets the data element values.
+        /// Gets the data element values
         /// </summary>
-        /// <returns>The data elements.</returns>
-        /// <param name="response">XML OCS Response.</param>
+        /// <returns>The data elements</returns>
+        /// <param name="response">XML OCS Response</param>
         private List<string> GetDataElements(string response)
         {
             List<string> result = new List<string>();
@@ -1286,10 +1299,10 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Gets the share list from a OCS Data response.
+        /// Gets the share list from a OCS Data response
         /// </summary>
-        /// <returns>The share list.</returns>
-        /// <param name="response">XML OCS Response.</param>
+        /// <returns>The share list</returns>
+        /// <param name="response">XML OCS Response</param>
         private List<Share> GetShareList(string response)
         {
             List<Share> shares = new List<Share>();
@@ -1415,28 +1428,35 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Checks the validity of the OCS Request. If invalid a exception is thrown.
+        /// Checks the validity of the OCS Request. If invalid a exception is thrown
         /// </summary>
-        /// <param name="response">OCS Response.</param>
+        /// <param name="response">OCS Response</param>
         private void CheckOcsStatus(RestResponse response)
         {
-            if (response.Content == null)
-                throw new ResponseError(response.ErrorMessage);
+            if (response.Content == null || response.Content == "")
+            {
+                if (response.ErrorException != null)
+                    throw new ResponseError("REST request failed", response.StatusCode, response.ErrorException, response.Content);
+                else if (response.ErrorMessage != null)
+                    throw new ResponseError(response.ErrorMessage, response.StatusCode, response.Content);
+                else 
+                    throw new ResponseError("Empty response content", response.StatusCode, response.Content);
+            }
             else
             {
                 var ocsStatus = GetFromMeta(response.Content, "statuscode");
                 if (ocsStatus == null)
-                    throw new ResponseError("Empty response");
+                    throw new ResponseError("Empty OCS status or invalid response data", response.StatusCode, response.Content);
                 if (!ocsStatus.Equals("100"))
-                    throw new OCSResponseError(GetFromMeta(response.Content, "message"), ocsStatus);
+                    throw new OCSResponseError(GetFromMeta(response.Content, "message"), ocsStatus, response.StatusCode);
             }
         }
 
         /// <summary>
-        /// Returns a list of application attributes.
+        /// Returns a list of application attributes
         /// </summary>
-        /// <returns>List of application attributes.</returns>
-        /// <param name="response">XML OCS Response.</param>
+        /// <returns>List of application attributes</returns>
+        /// <param name="response">XML OCS Response</param>
         private List<AppAttribute> GetAttributeList(string response)
         {
             List<AppAttribute> result = new List<AppAttribute>();
@@ -1468,10 +1488,10 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Gets the user attributes from a OCS XML Response.
+        /// Gets the user attributes from a OCS XML Response
         /// </summary>
-        /// <returns>The user attributes.</returns>
-        /// <param name="response">OCS XML Response.</param>
+        /// <returns>The user attributes</returns>
+        /// <param name="response">OCS XML Response</param>
         private User GetUser(string response)
         {
             var user = new User();
@@ -1534,7 +1554,7 @@ namespace CompuMaster.Ocs
 
                 node = data.Element(XName.Get("name"));
                 if (node != null)
-                    app.Name = node.Value;
+                    app.DisplayName = node.Value;
 
                 node = data.Element(XName.Get("description"));
                 if (node != null)
@@ -1593,10 +1613,10 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Returns the elements of a XML Element as a List.
+        /// Returns the elements of a XML Element as a List
         /// </summary>
-        /// <returns>The elements as list.</returns>
-        /// <param name="element">XML Element.</param>
+        /// <returns>The elements as list</returns>
+        /// <param name="element">XML Element</param>
         private List<string> XmlElementsToList(XElement element)
         {
             List<string> result = new List<string>();
@@ -1610,10 +1630,10 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Returns the elements of a XML Element as a Dictionary.
+        /// Returns the elements of a XML Element as a Dictionary
         /// </summary>
-        /// <returns>The elements as dictionary.</returns>
-        /// <param name="element">XML Element.</param>
+        /// <returns>The elements as dictionary</returns>
+        /// <param name="element">XML Element</param>
         private Dictionary<string, string> XmlElementsToDict(XElement element)
         {
             Dictionary<string, string> result = new Dictionary<string, string>();
