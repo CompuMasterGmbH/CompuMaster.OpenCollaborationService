@@ -9,7 +9,7 @@ Namespace CompuMaster.Ocs.Test
         Public Sub Setup()
         End Sub
 
-        Protected MustOverride Function CreateAuthorizedClientInstance() As Client
+        Protected MustOverride Function CreateAuthorizedClientInstance() As OcsClient
         Protected MustOverride ReadOnly Property AuthorizedUserRole As AuthorizedUserRoles
         Protected MustOverride ReadOnly Property UserIDMustExist As String
         ''' <summary>
@@ -26,7 +26,7 @@ Namespace CompuMaster.Ocs.Test
 
         <Test>
         Public Sub Login()
-            Dim c As Client = Me.CreateAuthorizedClientInstance()
+            Dim c As OcsClient = Me.CreateAuthorizedClientInstance()
             System.Console.WriteLine("## Instance")
             System.Console.WriteLine("BaseUrl=" & c.BaseUrl)
             System.Console.WriteLine("WebDavBaseUrl=" & c.WebDavBaseUrl)
@@ -35,16 +35,17 @@ Namespace CompuMaster.Ocs.Test
             System.Console.WriteLine(c.AuthorizedUserID)
             System.Console.WriteLine()
             System.Console.WriteLine("## Config")
-            System.Console.WriteLine("Website=" & c.GetConfig.Website)
-            System.Console.WriteLine("Host=" & c.GetConfig.Host)
-            System.Console.WriteLine("Ssl=" & c.GetConfig.Ssl)
-            System.Console.WriteLine("Contact=" & c.GetConfig.Contact)
-            System.Console.WriteLine("Version=" & c.GetConfig.Version)
-            Assert.GreaterOrEqual(New Version(1, 7), Version.Parse(c.GetConfig.Version))
+            Dim ServerConfig = c.GetConfig
+            System.Console.WriteLine("Website=" & ServerConfig.Website)
+            System.Console.WriteLine("Host=" & ServerConfig.Host)
+            System.Console.WriteLine("Ssl=" & ServerConfig.Ssl)
+            System.Console.WriteLine("Contact=" & ServerConfig.Contact)
+            System.Console.WriteLine("Version=" & ServerConfig.Version)
+            Assert.GreaterOrEqual(New Version(1, 7), Version.Parse(ServerConfig.Version))
         End Sub
 
         <Test> Public Sub GetUserAttributes()
-            Dim c As Client = Me.CreateAuthorizedClientInstance()
+            Dim c As OcsClient = Me.CreateAuthorizedClientInstance()
             Dim User = c.GetUserAttributes(Me.UserIDMustExist)
             Assert.NotNull(User)
             System.Console.WriteLine("## User " & Me.UserIDMustExist)
@@ -61,7 +62,7 @@ Namespace CompuMaster.Ocs.Test
         End Sub
 
         <Test> Public Sub GetUsers()
-            Dim c As Client = Me.CreateAuthorizedClientInstance()
+            Dim c As OcsClient = Me.CreateAuthorizedClientInstance()
             Try
                 Dim Users As String()
                 Users = c.SearchUsers().ToArray
@@ -109,7 +110,7 @@ Namespace CompuMaster.Ocs.Test
         End Sub
 
         <Test> Public Sub GetApps()
-            Dim c As Client = Me.CreateAuthorizedClientInstance()
+            Dim c As OcsClient = Me.CreateAuthorizedClientInstance()
             Try
                 System.Console.WriteLine("## Apps")
                 System.Console.WriteLine(Strings.Join(c.GetApps.ToArray, System.Environment.NewLine))

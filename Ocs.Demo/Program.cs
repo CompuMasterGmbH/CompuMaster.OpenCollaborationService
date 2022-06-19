@@ -10,7 +10,7 @@ namespace CompuMaster.Ocs.DemoApp
         {
             string path = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
 
-            var c = new Client("https://cloud.server/", "uploaduser", "uploadpassword");
+            var c = new OcsClient("https://cloud.server/", "uploaduser", "uploadpassword");
             var de = c.Download("/5K_Wallpaper_9.png");
             using (var fileStream = new FileStream(path + "\\5K_Wallpaper_9.png", FileMode.Create, FileAccess.Write))
             {
@@ -19,12 +19,12 @@ namespace CompuMaster.Ocs.DemoApp
 
             Stream fs = File.OpenRead(path + "\\5K_Wallpaper_9.png");
             c.Upload("/Zafer.png", fs);
-            var ps = c.ShareWithLink("/Zafer.png");
+            var ps = c.ShareWithLink("/Zafer.png", Core.OcsPermission.Read);
         }
 
         static void ShowLoggedInEnvironment()
         {
-            Client c = new Client("serverurl", "username", "password");
+            OcsClient c = new OcsClient("serverurl", "username", "password");
             System.Console.WriteLine("## Instance");
             System.Console.WriteLine("BaseUrl=" + c.BaseUrl);
             System.Console.WriteLine("WebDavBaseUrl=" + c.WebDavBaseUrl);
@@ -42,7 +42,7 @@ namespace CompuMaster.Ocs.DemoApp
 
         static void ShowLoggedInUserInfo()
         {
-            Client c = new Client("serverurl", "username", "password");
+            OcsClient c = new OcsClient("serverurl", "username", "password");
             var user = c.GetUserAttributes("username");
             System.Console.WriteLine("EMail=" + user.EMail);
             System.Console.WriteLine("DisplayName=" + user.DisplayName);

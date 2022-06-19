@@ -13,7 +13,13 @@ namespace CompuMaster.Ocs.Exceptions
 		/// Gets the OCS status code associated with the error.
 		/// </summary>
 		/// <value>The status code.</value>
-		public string OcsStatusCode { get; }
+		public int OcsStatusCode { get; }
+
+		/// <summary>
+		/// Gets the OCS status code associated with the error.
+		/// </summary>
+		/// <value>The status code.</value>
+		public string OcsStatusText { get; }
 
 		/// <summary>
 		/// Gets the HTTP status code associated with the error.
@@ -26,10 +32,11 @@ namespace CompuMaster.Ocs.Exceptions
 		/// </summary>
 		/// <param name="message">The message that describes the error.</param>
 		/// <param name="statusCode">OCS status code associated to the error.</param>
-		public OCSResponseError(string message, string ocsStatusCode, HttpStatusCode httpStatusCode) : base(ocsStatusCode + " " + message)
+		public OCSResponseError(string message, int ocsStatusCode, string ocsStatusText, HttpStatusCode httpStatusCode) : base(ocsStatusCode + " " + message)
 		{
 			this.OcsStatusCode = ocsStatusCode;
-			Debug.WriteLine("ERROR - OCS-StatusCode: " + this.OcsStatusCode + " - HTTP-StatusCode: " + this.HttpStatusCode + " - Message: " + this.Message);
+			this.OcsStatusText = ocsStatusText;
+			Debug.WriteLine("ERROR - OCS-StatusCode: " + this.OcsStatusCode.ToString() + "(" + ocsStatusText + ") - HTTP-StatusCode: " + this.HttpStatusCode + " - Message: " + this.Message);
 		}
 	}
 }

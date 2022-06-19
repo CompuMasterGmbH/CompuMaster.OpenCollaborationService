@@ -6,6 +6,7 @@ namespace CompuMaster.Ocs.Core
     /// Share permissions. Add values to a int in order to set multiple permissions.
     /// See <c>https://doc.owncloud.org/server/8.2/developer_manual/core/ocs-share-api.html</c> for reference.
     /// </summary>
+    [Flags]
     public enum OcsPermission {
         /// <summary>
         /// Read permission.

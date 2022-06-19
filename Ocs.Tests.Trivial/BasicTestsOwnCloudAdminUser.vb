@@ -26,12 +26,12 @@ Namespace CompuMaster.Ocs.Test
             End Get
         End Property
 
-        Protected Overrides Function CreateAuthorizedClientInstance() As Client
+        Protected Overrides Function CreateAuthorizedClientInstance() As OcsClient
             If IgnoreTestEnvironment Then Assert.Ignore("Test environment not available (username or password missing or none)")
             Dim username As String = Settings.InputLine("username")
             Dim serverurl As String = Settings.InputLine("server url")
             Dim password As String = Settings.InputLine("password")
-            Return New Client(serverurl, username, password)
+            Return New OcsClient(serverurl, username, password)
         End Function
 
     End Class

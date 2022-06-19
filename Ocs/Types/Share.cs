@@ -22,12 +22,40 @@ namespace CompuMaster.Ocs.Types
         /// <summary>
         /// The permissions granted on the share
         /// </summary>
-        public int Perms { get; set; }
+        public CompuMaster.Ocs.Core.OcsPermission Permissions { get; set; }
 		/// <summary>
 		/// Gets or sets the shares advanced properties.
 		/// </summary>
 		/// <value>The advanced properties.</value>
 		public AdvancedShareProperties AdvancedProperties { get; set; }
+
+  //      public override bool Equals(object obj)
+  //      {
+		//	if (obj == null || obj.GetType() != typeof(Share))
+		//		return false;
+		//	else
+		//		return (((Share)obj).ShareId == this.ShareId);
+  //      }
+
+		//public static bool operator ==(Share obj1, Share obj2)
+		//{
+		//	if (obj2 == null || obj2.GetType() != typeof(Share))
+		//		return false;
+		//	else
+		//		return (((Share)obj2).ShareId == obj1.ShareId);
+		//}
+		//public static bool operator !=(Share obj1, Share obj2)
+		//{
+		//	if (obj2 == null || obj2.GetType() != typeof(Share))
+		//		return true;
+		//	else
+		//		return (((Share)obj2).ShareId != obj1.ShareId);
+		//}
+
+        public override string ToString()
+        {
+			return "Share ID " + this.ShareId.ToString() + " (Permission: " + this.Permissions.ToString() + ") " + this.TargetPath;
+        }
     }
 
 	/// <summary>

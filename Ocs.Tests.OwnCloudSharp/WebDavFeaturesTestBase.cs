@@ -30,7 +30,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// <summary>
 		/// ownCloud# instance.
 		/// </summary>
-		private Client c;
+		private OcsClient c;
 		/// <summary>
 		/// File upload payload data.
 		/// </summary>
@@ -44,7 +44,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[OneTimeSetUp]
 		public void Init()
 		{
-			c = new Client(TestSettings.ownCloudInstanceUrl, TestSettings.ownCloudUser, TestSettings.ownCloudPassword);
+			c = new OcsClient(TestSettings.ownCloudInstanceUrl, TestSettings.ownCloudUser, TestSettings.ownCloudPassword);
 			payloadData = System.Text.Encoding.UTF8.GetBytes("owncloud# NUnit Payload\r\nPlease feel free to delete");
 			try
 			{
