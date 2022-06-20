@@ -46,13 +46,21 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			c = new OcsClient(TestSettings.ownCloudInstanceUrl, TestSettings.ownCloudUser, TestSettings.ownCloudPassword);
 			payloadData = System.Text.Encoding.UTF8.GetBytes("owncloud# NUnit Payload\r\nPlease feel free to delete");
+
+			if (TestSettings.ownCloudInstanceUrl == null || TestSettings.ownCloudUser == null)
+				Assert.Ignore("No login credentials assigned for unit tests");
+
 			try
 			{
 				if (!c.Exists("/")) throw new Exception("Root directory not found");
 			}
 			catch (CompuMaster.Ocs.Exceptions.OcsResponseException ex)
 			{
-				throw new Exception("Login user not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
+				throw new Exception("Login user \"" + TestSettings.ownCloudUser + "\" not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
+			}
+			catch (Exception ex)
+			{
+				throw new Exception("Login failed (login user \"" + TestSettings.ownCloudUser + "\")", ex);
 			}
 		}
 
