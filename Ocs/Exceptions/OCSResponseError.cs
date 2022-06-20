@@ -7,7 +7,7 @@ namespace CompuMaster.Ocs.Exceptions
 	/// <summary>
 	/// OCS API response error
 	/// </summary>
-	public class OcsResponseError : Exception
+	public class OcsResponseException : Exception
 	{
 		/// <summary>
 		/// Gets the OCS status code associated with the error.
@@ -32,7 +32,7 @@ namespace CompuMaster.Ocs.Exceptions
 		/// </summary>
 		/// <param name="message">The message that describes the error.</param>
 		/// <param name="statusCode">OCS status code associated to the error.</param>
-		public OcsResponseError(string message, int ocsStatusCode, string ocsStatusText, HttpStatusCode httpStatusCode) : base(FullMessage(message, ocsStatusCode, ocsStatusText, httpStatusCode))
+		public OcsResponseException(string message, int ocsStatusCode, string ocsStatusText, HttpStatusCode httpStatusCode) : base(FullMessage(message, ocsStatusCode, ocsStatusText, httpStatusCode))
 		{
 			this.OcsStatusCode = ocsStatusCode;
 			this.OcsStatusText = ocsStatusText;
@@ -52,13 +52,13 @@ namespace CompuMaster.Ocs.Exceptions
             {
 				//OCS error
 				if (!String.IsNullOrEmpty(message))
-					return "OCS-Error: OCS-StatusCode: " + ocsStatusCode.ToString() + " (" + ocsStatusText + ") - HTTP-StatusCode: " + httpStatusCode + " - Message: " + message;
+					return "OCS-Error: OCS-StatusCode: " + ocsStatusCode.ToString() + " (" + ocsStatusText + ") - HTTP-StatusCode: " + ((int)httpStatusCode).ToString() + " - Message: " + message;
 				else
-					return "OCS-Error: OCS-StatusCode: " + ocsStatusCode.ToString() + " (" + ocsStatusText + ") - HTTP-StatusCode: " + httpStatusCode;
+					return "OCS-Error: OCS-StatusCode: " + ocsStatusCode.ToString() + " (" + ocsStatusText + ") - HTTP-StatusCode: " + ((int)httpStatusCode).ToString();
 			}
 			else if (httpStatusCode != 0)
 				//HTTP or network error
-				return "HTTP-Error: " + httpStatusCode + " " + message;
+				return "HTTP-Error: " + ((int)httpStatusCode).ToString() + " " + message;
 			else
 				//another unknown error
 				return message;

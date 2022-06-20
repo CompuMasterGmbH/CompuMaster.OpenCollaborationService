@@ -71,13 +71,13 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			{
 				if (!c.Exists("/")) throw new Exception("Root directory not found");
 			}
-			catch (CompuMaster.Ocs.Exceptions.OcsResponseError ex)
+			catch (CompuMaster.Ocs.Exceptions.OcsResponseException ex)
 			{
-				throw new Exception("Login user not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
+				throw new Exception("Login user \"" + TestSettings.ownCloudUser + "\" not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
 			}
 			catch (Exception ex)
 			{
-				throw new Exception("Login failed", ex);
+				throw new Exception("Login failed (login user \"" + TestSettings.ownCloudUser + "\")", ex);
 			}
 
 			try
@@ -89,7 +89,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				if (!c.IsUserInGroup("sharetest", "testgroup"))
 					c.AddUserToGroup("sharetest", "testgroup");
 			}
-			catch (CompuMaster.Ocs.Exceptions.OcsResponseError ex)
+			catch (CompuMaster.Ocs.Exceptions.OcsResponseException ex)
 			{
 				throw new Exception("Login user not authorized to manage users/groups (status code: " + ex.OcsStatusCode + ")", ex);
 			}
@@ -265,7 +265,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			MemoryStream payload = new MemoryStream(payloadData);
 
 			c.Upload("/share-link-test.txt", payload, "text/plain");
-			Assert.Catch<CompuMaster.Ocs.Exceptions.OcsResponseError>(() =>
+			Assert.Catch<CompuMaster.Ocs.Exceptions.OcsResponseException>(() =>
 			{
 				//throws CompuMaster.Ocs.Exceptions.OCSResponseError : 404 Das öffentliche Hochladen ist nur für öffentlich freigegebene Ordner erlaubt
 				//since the shared item is a file, not a folder
@@ -747,7 +747,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			Assert.IsNotEmpty(result.Id);
 			System.Console.WriteLine("AppInfo " + result.DisplayName + " DefaultEnable=" + result.DefaultEnable);
 
-			Assert.Catch<CompuMaster.Ocs.Exceptions.OcsResponseError>(() => c.GetApp("this-app-never-exists"));
+			Assert.Catch<CompuMaster.Ocs.Exceptions.OcsResponseException>(() => c.GetApp("this-app-never-exists"));
 
 			var AllApps = c.GetApps();
 			foreach (string AppName in AllApps)
@@ -758,7 +758,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 					System.Console.WriteLine("FOUND AppInfo " + AppName + " (" + result.DisplayName + ")" + " DefaultEnable=" + result.DefaultEnable);
 					Assert.That(result.Id, Is.EqualTo(AppName));
 				}
-				catch (CompuMaster.Ocs.Exceptions.OcsResponseError ex)
+				catch (CompuMaster.Ocs.Exceptions.OcsResponseException ex)
 				{
 					System.Console.WriteLine("FAILED QUERY: AppInfo " + AppName + " -> " + ex.Message);
 				}

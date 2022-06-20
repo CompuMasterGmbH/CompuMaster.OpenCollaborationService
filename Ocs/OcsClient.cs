@@ -190,15 +190,15 @@ namespace CompuMaster.Ocs
         /// Check WebDavResult and throw exceptions if it failed
         /// </summary>
         /// <param name="result"></param>
-        /// <exception cref="Ocs.Exceptions.OcsResponseError"></exception>
+        /// <exception cref="Ocs.Exceptions.OcsResponseException"></exception>
         private void CheckDavStatus(WebDav.WebDavResponse result)
         {
             if (result.IsSuccessful == false)
             {
                 if (result.StatusCode != 0)
-                    throw new Ocs.Exceptions.OcsResponseError(result.Description, 0, null, (HttpStatusCode)result.StatusCode);
+                    throw new Ocs.Exceptions.OcsResponseException(result.Description, 0, null, (HttpStatusCode)result.StatusCode);
                 else
-                    throw new Ocs.Exceptions.OcsResponseError(result.Description, 0, null, 0);
+                    throw new Ocs.Exceptions.OcsResponseException(result.Description, 0, null, 0);
             }
         }
 
@@ -846,7 +846,7 @@ namespace CompuMaster.Ocs
             {
                 CheckOcsStatus(response);
             }
-            catch (OcsResponseError ocserr)
+            catch (OcsResponseException ocserr)
             {
                 if (ocserr.OcsStatusCode.Equals("102")) // empty response results in a OCS 102 Error
                     return new List<string>();
@@ -1351,12 +1351,12 @@ namespace CompuMaster.Ocs
                     //successful
                     return;
                 else
-                    throw new OcsResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
+                    throw new OcsResponseException(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
             }
             else if (String.IsNullOrEmpty(response.Content))
-                throw new OcsResponseError("Missing OCS response content", 0, null, response.StatusCode);
+                throw new OcsResponseException("Missing OCS response content", 0, null, response.StatusCode);
             else
-                throw new OcsResponseError("OCS failure (invalid OCS response content))", 0, null, 0);
+                throw new OcsResponseException("OCS failure (invalid OCS response content))", 0, null, 0);
         }
 
         /// <summary>
@@ -1381,7 +1381,7 @@ namespace CompuMaster.Ocs
                 if (ocsStatus == null)
                     throw new ResponseError("Empty OCS status or invalid response data", response.StatusCode, response.Content);
                 if (!ocsStatus.Equals("100"))
-                    throw new OcsResponseError(GetFromMeta(response.Content, "message"), int.Parse(ocsStatus), ocsStatusText, response.StatusCode);
+                    throw new OcsResponseException(GetFromMeta(response.Content, "message"), int.Parse(ocsStatus), ocsStatusText, response.StatusCode);
             }
         }
 

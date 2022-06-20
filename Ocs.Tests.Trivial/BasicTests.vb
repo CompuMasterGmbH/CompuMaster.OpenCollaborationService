@@ -97,7 +97,7 @@ Namespace CompuMaster.Ocs.Test
                 System.Console.WriteLine("## Searched Users: {empty string}")
                 System.Console.WriteLine(Strings.Join(Users, System.Environment.NewLine))
                 Assert.NotZero(Users.Length)
-            Catch ex As CompuMaster.Ocs.Exceptions.OcsResponseError
+            Catch ex As CompuMaster.Ocs.Exceptions.OcsResponseException
                 Select Case Me.AuthorizedUserRole
                     Case AuthorizedUserRoles.AdminUser, AuthorizedUserRoles.SubAdminUser
                         Throw New Exception("Expected action to be authorized for user: " & c.AuthorizedUserID, ex)
@@ -115,7 +115,7 @@ Namespace CompuMaster.Ocs.Test
                 System.Console.WriteLine("## Apps")
                 System.Console.WriteLine(Strings.Join(c.GetApps.ToArray, System.Environment.NewLine))
                 Assert.NotZero(c.GetApps.Count)
-            Catch ex As CompuMaster.Ocs.Exceptions.OcsResponseError
+            Catch ex As CompuMaster.Ocs.Exceptions.OcsResponseException
                 Select Case Me.AuthorizedUserRole
                     Case AuthorizedUserRoles.AdminUser
                         Throw New Exception("Expected action to be authorized", ex)

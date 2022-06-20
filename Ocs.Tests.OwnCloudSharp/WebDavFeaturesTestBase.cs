@@ -50,7 +50,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			{
 				if (!c.Exists("/")) throw new Exception("Root directory not found");
 			}
-			catch (CompuMaster.Ocs.Exceptions.OcsResponseError ex)
+			catch (CompuMaster.Ocs.Exceptions.OcsResponseException ex)
 			{
 				throw new Exception("Login user not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
 			}
