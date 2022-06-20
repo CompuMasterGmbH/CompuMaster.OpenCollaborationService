@@ -91,12 +91,12 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
             }
         private void TestDeserializedData(string xml)
         {
-            var serializer = new XmlSerializer(typeof(CompuMaster.Ocs.Types.OCS));
-            CompuMaster.Ocs.Types.OCS result;
+            var serializer = new XmlSerializer(typeof(CompuMaster.Ocs.Types.OcsResponseResult));
+            CompuMaster.Ocs.Types.OcsResponseResult result;
 
             using (TextReader reader = new StringReader(xml))
             {
-                result = (CompuMaster.Ocs.Types.OCS)serializer.Deserialize(reader);
+                result = (CompuMaster.Ocs.Types.OcsResponseResult)serializer.Deserialize(reader);
             }
 
             Assert.NotNull(result, "content root element deserialization failed");

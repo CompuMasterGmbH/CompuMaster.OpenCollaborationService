@@ -7,7 +7,7 @@ namespace CompuMaster.Ocs.Exceptions
 	/// <summary>
 	/// OCS API response error
 	/// </summary>
-	public class OCSResponseError : Exception
+	public class OcsResponseError : Exception
 	{
 		/// <summary>
 		/// Gets the OCS status code associated with the error.
@@ -32,11 +32,36 @@ namespace CompuMaster.Ocs.Exceptions
 		/// </summary>
 		/// <param name="message">The message that describes the error.</param>
 		/// <param name="statusCode">OCS status code associated to the error.</param>
-		public OCSResponseError(string message, int ocsStatusCode, string ocsStatusText, HttpStatusCode httpStatusCode) : base(ocsStatusCode + " " + message)
+		public OcsResponseError(string message, int ocsStatusCode, string ocsStatusText, HttpStatusCode httpStatusCode) : base(FullMessage(message, ocsStatusCode, ocsStatusText, httpStatusCode))
 		{
 			this.OcsStatusCode = ocsStatusCode;
 			this.OcsStatusText = ocsStatusText;
-			Debug.WriteLine("ERROR - OCS-StatusCode: " + this.OcsStatusCode.ToString() + "(" + ocsStatusText + ") - HTTP-StatusCode: " + this.HttpStatusCode + " - Message: " + this.Message);
+		}
+
+		/// <summary>
+		/// Create the full exception message
+		/// </summary>
+		/// <param name="message"></param>
+		/// <param name="ocsStatusCode"></param>
+		/// <param name="ocsStatusText"></param>
+		/// <param name="httpStatusCode"></param>
+		/// <returns></returns>
+		private static string FullMessage(string message, int ocsStatusCode, string ocsStatusText, HttpStatusCode httpStatusCode)
+		{
+			if (ocsStatusCode != 0 && !String.IsNullOrEmpty(ocsStatusText))
+            {
+				//OCS error
+				if (!String.IsNullOrEmpty(message))
+					return "OCS-Error: OCS-StatusCode: " + ocsStatusCode.ToString() + " (" + ocsStatusText + ") - HTTP-StatusCode: " + httpStatusCode + " - Message: " + message;
+				else
+					return "OCS-Error: OCS-StatusCode: " + ocsStatusCode.ToString() + " (" + ocsStatusText + ") - HTTP-StatusCode: " + httpStatusCode;
+			}
+			else if (httpStatusCode != 0)
+				//HTTP or network error
+				return "HTTP-Error: " + httpStatusCode + " " + message;
+			else
+				//another unknown error
+				return message;
 		}
 	}
 }

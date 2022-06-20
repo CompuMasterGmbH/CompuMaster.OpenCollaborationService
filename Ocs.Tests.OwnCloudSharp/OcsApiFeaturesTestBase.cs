@@ -44,8 +44,10 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[SetUp]
 		public void InitEveryTest()
 		{
+			System.Console.WriteLine();
+			System.Console.WriteLine("## " + NUnit.Framework.TestContext.CurrentContext.Test.FullName);
 			System.Console.WriteLine("TEST ENVIRONMENT: " + TestSettings.ownCloudInstanceUrl);
-			System.Console.WriteLine("TEST USER: " + TestSettings.ownCloudUser);
+			System.Console.WriteLine("TEST USER       : " + TestSettings.ownCloudUser);
 		}
 
 		/// <summary>
@@ -54,19 +56,30 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[OneTimeSetUp]
 		public void Init()
 		{
+			System.Console.WriteLine();
+			System.Console.WriteLine("# INIT: " + NUnit.Framework.TestContext.CurrentContext.Test.ClassName);
 			System.Console.WriteLine("TEST ENVIRONMENT: " + TestSettings.ownCloudInstanceUrl);
 			System.Console.WriteLine("TEST USER: " + TestSettings.ownCloudUser);
 
 			c = new OcsClient(TestSettings.ownCloudInstanceUrl, TestSettings.ownCloudUser, TestSettings.ownCloudPassword);
 			payloadData = System.Text.Encoding.UTF8.GetBytes("owncloud# NUnit Payload\r\nPlease feel free to delete");
+
+			if (TestSettings.ownCloudInstanceUrl == null || TestSettings.ownCloudUser == null)
+				Assert.Ignore("No login credentials assigned for unit tests");
+
 			try
 			{
 				if (!c.Exists("/")) throw new Exception("Root directory not found");
 			}
-			catch (CompuMaster.Ocs.Exceptions.OCSResponseError ex)
+			catch (CompuMaster.Ocs.Exceptions.OcsResponseError ex)
 			{
 				throw new Exception("Login user not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
 			}
+			catch (Exception ex)
+			{
+				throw new Exception("Login failed", ex);
+			}
+
 			try
 			{
 				if (!c.UserExists("sharetest"))
@@ -76,7 +89,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				if (!c.IsUserInGroup("sharetest", "testgroup"))
 					c.AddUserToGroup("sharetest", "testgroup");
 			}
-			catch (CompuMaster.Ocs.Exceptions.OCSResponseError ex)
+			catch (CompuMaster.Ocs.Exceptions.OcsResponseError ex)
 			{
 				throw new Exception("Login user not authorized to manage users/groups (status code: " + ex.OcsStatusCode + ")", ex);
 			}
@@ -252,7 +265,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			MemoryStream payload = new MemoryStream(payloadData);
 
 			c.Upload("/share-link-test.txt", payload, "text/plain");
-			Assert.Catch<CompuMaster.Ocs.Exceptions.OCSResponseError>(() =>
+			Assert.Catch<CompuMaster.Ocs.Exceptions.OcsResponseError>(() =>
 			{
 				//throws CompuMaster.Ocs.Exceptions.OCSResponseError : 404 Das öffentliche Hochladen ist nur für öffentlich freigegebene Ordner erlaubt
 				//since the shared item is a file, not a folder
@@ -299,11 +312,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			MemoryStream payload = new MemoryStream(payloadData);
 
-			var result = c.Upload("/share-update-test.txt", payload, "text/plain");
+			c.Upload("/share-update-test.txt", payload, "text/plain");
 			var share = c.ShareWithLink("/share-update-test.txt", OcsPermission.All, "test", OcsBoolParam.False);
 			System.Console.WriteLine(share.ToString() + " >>> " + share.Url);
 
-			Assert.True(c.UpdateShare(share.ShareId, OcsPermission.None, "test123test"));
+			c.UpdateShare(share.ShareId, OcsPermission.None, "test123test");
 		}
 
 		/// <summary>
@@ -314,11 +327,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			MemoryStream payload = new MemoryStream(payloadData);
 
-			var result = c.Upload("/share-delete-test.txt", payload, "text/plain");
+			c.Upload("/share-delete-test.txt", payload, "text/plain");
 			var share = c.ShareWithLink("/share-delete-test.txt", OcsPermission.All, "test", OcsBoolParam.False);
 
-			result = c.DeleteShare(share.ShareId);
-			Assert.True(result);
+			c.DeleteShare(share.ShareId);
+			Assert.True(true);
 		}
 
 		/// <summary>
@@ -330,11 +343,9 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			MemoryStream payload = new MemoryStream(payloadData);
 
-			var result = c.Upload("/share-shared-test.txt", payload, "text/plain");
+			c.Upload("/share-shared-test.txt", payload, "text/plain");
 			c.ShareWithLink("/share-shared-test.txt", OcsPermission.All, "test", OcsBoolParam.False);
-
-			result = c.IsShared("/share-shared-test.txt");
-			Assert.True(result);
+			Assert.True(c.IsShared("/share-shared-test.txt"));
 		}
 
 		/// <summary>
@@ -376,16 +387,18 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			//GetSharesForNewTempUsers("octestusr-sub", "test-octestusr-subadmin", false);
 			//GetSharesForNewTempUsers("octestusr-subadmin", "test-octestusr-subadmin", false);
 
-			Assert.True(c.DeleteUser("octestusr1"));
+			c.DeleteUser("octestusr1");
 			//Assert.True(c.DeleteUser("octestusr-sub"));
 			//Assert.True(c.DeleteUser("octestusr-subadmin"));
+
+			Assert.True(true);
 		}
 
 		private void GetSharesForNewTempUsers(string username, string password, bool isSubAdmin)
 		{
 			if (c.UserExists(username))
 				c.DeleteUser(username);
-			var result = c.CreateUser(username, password);
+			c.CreateUser(username, password);
 
 			var c1 = new OcsClient(TestSettings.ownCloudInstanceUrl, username, password);
 			var shares = c1.GetShares();
@@ -405,9 +418,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		public void CreateUser()
 		{
 			if (c.UserExists("octestusr1"))
-				Assert.True(c.DeleteUser("octestusr1"), "Existing user must be deleted before test core can start to re-create it again");
+				//Existing user must be deleted before test core can start to re-create it again
+				c.DeleteUser("octestusr1");
 
-			Assert.True(c.CreateUser("octestusr1", "octestpwd"));
+			c.CreateUser("octestusr1", "octestpwd");
+			Assert.True(c.UserExists("octestusr1"));
 		}
 
 		/// <summary>
@@ -417,9 +432,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		public void DeleteUser()
 		{
 			if (!c.UserExists("deluser"))
-				Assert.True(c.CreateUser("deluser", "delpwd"), "User must be created before test core can start to delete it again");
+				//User must be created before test core can start to delete it again
+				c.CreateUser("deluser", "delpwd");
 
-			Assert.True(c.DeleteUser("deluser"));
+			c.DeleteUser("deluser");
+			Assert.False(c.UserExists("deluser"));
 		}
 
 		/// <summary>
@@ -428,8 +445,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test()]
 		public void UserExists()
 		{
-			var result = c.UserExists("sharetest");
-			Assert.True(result);
+			Assert.True(c.UserExists("sharetest"));
 		}
 
 		/// <summary>
@@ -468,9 +484,10 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		public void AddUserToGroup()
 		{
 			if (!c.UserExists("octestusr"))
-				Assert.True(c.CreateUser("octestusr", "octestpwd"));
+				c.CreateUser("octestusr", "octestpwd");
 
-			Assert.True(c.AddUserToGroup("octestusr", "testgroup"));
+			c.AddUserToGroup("octestusr", "testgroup");
+			Assert.True(c.IsUserInGroup("octestusr", "testgroup"));
 		}
 
 		/// <summary>
@@ -492,7 +509,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			if (!c.UserExists("octestusr"))
 			{
-				Assert.True(c.CreateUser("octestusr", "octestpwd"));
+				c.CreateUser("octestusr", "octestpwd");
 			}
 			c.AddUserToGroup("octestusr", "testgroup");
 
@@ -523,7 +540,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			if (!c.IsUserInGroup("octestusr", "testgroup"))
 				c.AddUserToGroup("octestusr", "testgroup");
 
-			Assert.True(c.RemoveUserFromGroup("octestusr", "testgroup"));
+			c.RemoveUserFromGroup("octestusr", "testgroup");
+			Assert.True(true);
 		}
 
 		/// <summary>
@@ -538,7 +556,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				c.AddUserToGroup("octestusr", "testgroup");
 			}
 
-			Assert.True(c.AddUserToSubAdminGroup("octestusr", "testgroup"));
+			c.AddUserToSubAdminGroup("octestusr", "testgroup");
+			Assert.True(true);
 		}
 
 		/// <summary>
@@ -590,7 +609,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			if (!c.IsUserInSubAdminGroup("octestusr", "testgroup"))
 				c.AddUserToSubAdminGroup("octestusr", "testgroup");
 
-			Assert.True(c.RemoveUserFromSubAdminGroup("octestusr", "testgroup"));
+			c.RemoveUserFromSubAdminGroup("octestusr", "testgroup");
+			Assert.False(c.IsUserInSubAdminGroup("octestusr", "testgroup"));
 		}
 		#endregion
 
@@ -601,8 +621,9 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test()]
 		public void CreateGroup()
 		{
-			var result = c.CreateGroup("ocsgroup");
-			Assert.True(result);
+			if (!c.GroupExists("ocsgroup"))
+				c.CreateGroup("ocsgroup");
+			Assert.True(c.GroupExists("ocsgroup"));
 		}
 
 		/// <summary>
@@ -613,8 +634,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			if (!c.GroupExists("ocsgroup"))
 				c.CreateGroup("ocsgroup");
-			var result = c.DeleteGroup("ocsgroup");
-			Assert.True(result);
+			c.DeleteGroup("ocsgroup");
+			Assert.False(c.GroupExists("ocsgroup"));
 		}
 
 		/// <summary>
@@ -632,8 +653,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// </summary>
 		public void GroupNotExists()
 		{
-			var result = c.GroupExists("ocs-does-not-exist");
-			Assert.False(result);
+			Assert.False(c.GroupExists("ocs-does-not-exist"));
 		}
 
 		/// <summary>
@@ -679,8 +699,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// </summary>
 		public void SetAttribute()
 		{
-			var result = c.SetAttribute("files", "test", "true");
-			Assert.True(result);
+			c.SetAttribute("files", "test", "true");
+			Assert.True(true);
 		}
 
 		/// <summary>
@@ -691,8 +711,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			if (c.GetAttribute("files", "test").Count == 0)
 				c.SetAttribute("files", "test", "true");
 
-			var result = c.DeleteAttribute("files", "test");
-			Assert.True(result);
+			c.DeleteAttribute("files", "test");
+			Assert.True(true);
 		}
 		#endregion
 
@@ -727,7 +747,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			Assert.IsNotEmpty(result.Id);
 			System.Console.WriteLine("AppInfo " + result.DisplayName + " DefaultEnable=" + result.DefaultEnable);
 
-			Assert.Catch<CompuMaster.Ocs.Exceptions.OCSResponseError>(() => c.GetApp("this-app-never-exists"));
+			Assert.Catch<CompuMaster.Ocs.Exceptions.OcsResponseError>(() => c.GetApp("this-app-never-exists"));
 
 			var AllApps = c.GetApps();
 			foreach (string AppName in AllApps)
@@ -738,7 +758,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 					System.Console.WriteLine("FOUND AppInfo " + AppName + " (" + result.DisplayName + ")" + " DefaultEnable=" + result.DefaultEnable);
 					Assert.That(result.Id, Is.EqualTo(AppName));
 				}
-				catch (CompuMaster.Ocs.Exceptions.OCSResponseError ex)
+				catch (CompuMaster.Ocs.Exceptions.OcsResponseError ex)
 				{
 					System.Console.WriteLine("FAILED QUERY: AppInfo " + AppName + " -> " + ex.Message);
 				}
@@ -751,7 +771,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test(), Explicit(@"App ""news"" will change its status to enabled"), Ignore(@"App ""news"" not available at test environment")]
 		public void EnableApp()
 		{
-			Assert.True(c.EnableApp("news"));
+			c.EnableApp("news");
+			Assert.True(true);
 		}
 
 		/// <summary>
@@ -760,7 +781,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test(), Explicit(@"App ""news"" will change its status to disabled"), Ignore(@"App ""news"" not available at test environment")]
 		public void DisableApp()
 		{
-			Assert.True(c.DisableApp("news"));
+			c.DisableApp("news");
+			Assert.True(true);
 		}
 		#endregion
 		#endregion

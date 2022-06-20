@@ -4,10 +4,10 @@ using System.Xml.Serialization;
 namespace CompuMaster.Ocs.Types
 {
 	/// <summary>
-	/// OCS API Response.
+	/// OCS API Response
 	/// </summary>
 	[Serializable, XmlRoot("ocs")]
-	public class OCS
+	public class OcsResponseResult
 	{
 		/// <summary>
 		/// Gets or sets the meta information.
@@ -24,7 +24,15 @@ namespace CompuMaster.Ocs.Types
 	}
 
 	/// <summary>
-	/// OCS API Meta information.
+	/// OCS API Response
+	/// </summary>
+	[Obsolete("Use OcsResponseResult instead"), System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+	public class OCS : OcsResponseResult
+	{
+	}
+
+	/// <summary>
+	/// OCS API Meta information
 	/// </summary>
 	[Serializable]
 	public class Meta {

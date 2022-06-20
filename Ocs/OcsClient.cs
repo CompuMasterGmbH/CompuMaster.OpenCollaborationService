@@ -5,12 +5,9 @@ using System.IO;
 using System.Net;
 using System.Xml;
 using System.Xml.Linq;
-
 using RestSharp;
 using RestSharp.Authenticators;
 using WebDav;
-
-
 using CompuMaster.Ocs.Exceptions;
 using CompuMaster.Ocs.Types;
 using CompuMaster.Ocs.Core;
@@ -190,13 +187,31 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
+        /// Check WebDavResult and throw exceptions if it failed
+        /// </summary>
+        /// <param name="result"></param>
+        /// <exception cref="Ocs.Exceptions.OcsResponseError"></exception>
+        private void CheckDavStatus(WebDav.WebDavResponse result)
+        {
+            if (result.IsSuccessful == false)
+            {
+                if (result.StatusCode != 0)
+                    throw new Ocs.Exceptions.OcsResponseError(result.Description, 0, null, (HttpStatusCode)result.StatusCode);
+                else
+                    throw new Ocs.Exceptions.OcsResponseError(result.Description, 0, null, 0);
+            }
+        }
+
+        /// <summary>
         /// Download the specified file
         /// </summary>
         /// <param name="path">File remote Path</param>
         /// <returns>File contents</returns>
         public Stream Download(string path)
         {
-            return dav.GetRawFile(GetDavUri(path)).Result.Stream;
+            var result = dav.GetRawFile(GetDavUri(path)).Result;
+            CheckDavStatus(result);
+            return result.Stream;
         }
 
         /// <summary>
@@ -206,9 +221,10 @@ namespace CompuMaster.Ocs
         /// <param name="data">File contents</param>
         /// <param name="contentType">File content type</param>
         /// <returns><c>true</c>, if upload successful, <c>false</c> otherwise</returns>
-        public bool Upload(string path, Stream data, string contentType)
+        public void Upload(string path, Stream data, string contentType)
         {
-            return dav.PutFile(GetDavUri(path), data, contentType).Result.IsSuccessful;
+            var result = dav.PutFile(GetDavUri(path), data, contentType).Result;
+            CheckDavStatus(result);
         }
 
         /// <summary>
@@ -217,9 +233,10 @@ namespace CompuMaster.Ocs
         /// <param name="path">remote Path</param>
         /// <param name="data">File contents</param>
         /// <returns><c>true</c>, if upload successful, <c>false</c> otherwise</returns>
-        public bool Upload(string path, Stream data)
+        public void Upload(string path, Stream data)
         {
-            return dav.PutFile(GetDavUri(path), data).Result.IsSuccessful;
+            var result = dav.PutFile(GetDavUri(path), data).Result;
+            CheckDavStatus(result);
         }
 
         /// <summary>
@@ -230,8 +247,13 @@ namespace CompuMaster.Ocs
         public bool Exists(string path)
         {
             var result = this.dav.Propfind(GetDavUri(path)).Result;
-
-            return result.Resources.Count != 0;
+            if (result.StatusCode == 404)
+                return false;
+            else 
+            {
+                CheckDavStatus(result);
+                return result.Resources.Count != 0;
+            }
         }
 
         /// <summary>
@@ -239,9 +261,10 @@ namespace CompuMaster.Ocs
         /// </summary>
         /// <returns><c>true</c>, if directory was created, <c>false</c> otherwise</returns>
         /// <param name="path">remote Path</param>
-        public bool CreateDirectory(string path)
+        public void CreateDirectory(string path)
         {
-            return dav.Mkcol(GetDavUri(path)).Result.IsSuccessful;
+            var result = dav.Mkcol(GetDavUri(path)).Result;
+            CheckDavStatus(result);
         }
 
         /// <summary>
@@ -249,9 +272,10 @@ namespace CompuMaster.Ocs
         /// </summary>
         /// <param name="path">remote Path</param>
         /// <returns><c>true</c>, if resource was deleted, <c>false</c> otherwise</returns>
-        public bool Delete(string path)
+        public void Delete(string path)
         {
-            return dav.Delete(GetDavUri(path)).Result.IsSuccessful;
+            var result = dav.Delete(GetDavUri(path)).Result;
+            CheckDavStatus(result);
         }
 
         /// <summary>
@@ -260,9 +284,10 @@ namespace CompuMaster.Ocs
         /// <param name="source">Source resoure path</param>
         /// <param name="destination">Destination resource path</param>
         /// <returns><c>true</c>, if resource was copied, <c>false</c> otherwise</returns>
-        public bool Copy(string source, string destination)
+        public void Copy(string source, string destination)
         {
-            return dav.Copy(GetDavUri(source), GetDavUri(destination)).Result.IsSuccessful;
+            var result = dav.Copy(GetDavUri(source), GetDavUri(destination)).Result;
+            CheckDavStatus(result);
         }
 
         /// <summary>
@@ -271,9 +296,10 @@ namespace CompuMaster.Ocs
         /// <param name="source">Source resource path</param>
         /// <param name="destination">Destination resource path</param>
         /// <returns><c>true</c>, if resource was moved, <c>false</c> otherwise</returns>
-        public bool Move(string source, string destination)
+        public void Move(string source, string destination)
         {
-            return dav.Move(GetDavUri(source), GetDavUri(destination)).Result.IsSuccessful;
+            var result = dav.Move(GetDavUri(source), GetDavUri(destination)).Result;
+            CheckDavStatus(result);
         }
 
         /// <summary>
@@ -283,8 +309,10 @@ namespace CompuMaster.Ocs
         /// <param name="path">path to the remote directory to download</param>
         public Stream DownloadDirectoryAsZip(string path)
         {
-            var uri = GetUri("index.php/apps/files/ajax/download.php?dir=" + WebUtility.UrlEncode(path));
-            return dav.GetRawFile(uri).Result.Stream;
+            var uri = GetUri("/index.php/apps/files/ajax/download.php?dir=" + WebUtility.UrlEncode(path));
+            var result = dav.GetRawFile(uri).Result;
+            CheckDavStatus(result);
+            return result.Stream;
         }
         #endregion
 
@@ -312,23 +340,15 @@ namespace CompuMaster.Ocs
         /// </summary>
         /// <returns><c>true</c>, if remote share was accepted, <c>false</c> otherwise</returns>
         /// <param name="shareId">Share identifier</param>
-        public bool AcceptRemoteShare(int shareId)
+        public void AcceptRemoteShare(int shareId)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "remote_shares") + "/{id}", Method.Post);
             //request.AddUrlSegment("id", "" + shareId);
             ApplyUrlSegment(request, "id", "" + shareId);
             request.AddHeader("OCS-APIREQUEST", "true");
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -336,23 +356,15 @@ namespace CompuMaster.Ocs
         /// </summary>
         /// <returns><c>true</c>, if remote share was declined, <c>false</c> otherwise</returns>
         /// <param name="shareId">Share identifier</param>
-        public bool DeclineRemoteShare(int shareId)
+        public void DeclineRemoteShare(int shareId)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "remote_shares") + "/{id}", Method.Delete);
             //request.AddUrlSegment("id", "" + shareId);
             ApplyUrlSegment(request, "id", "" + shareId);
             request.AddHeader("OCS-APIREQUEST", "true");
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
         #endregion
 
@@ -362,23 +374,15 @@ namespace CompuMaster.Ocs
         /// </summary>
         /// <returns><c>true</c>, if share was deleted, <c>false</c> otherwise</returns>
         /// <param name="shareId">Share identifier</param>
-        public bool DeleteShare(int shareId)
+        public void DeleteShare(int shareId)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "shares") + "/{id}", Method.Delete);
             //request.AddUrlSegment("id", "" + shareId);
             ApplyUrlSegment(request, "id", "" + shareId);
             request.AddHeader("OCS-APIREQUEST", "true");
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -389,7 +393,7 @@ namespace CompuMaster.Ocs
         /// <param name="perms">(optional) update permissions</param>
         /// <param name="password">(optional) updated password for public link Share</param>
         /// <param name="public_upload">(optional) If set to <c>true</c> enables public upload for public shares</param>
-        public bool UpdateShare(int shareId, OcsPermission perms = OcsPermission.None, string password = null, OcsBoolParam public_upload = OcsBoolParam.None)
+        public void UpdateShare(int shareId, OcsPermission perms = OcsPermission.None, string password = null, OcsBoolParam public_upload = OcsBoolParam.None)
         {
             //if (perms == OcsPermission.None) throw new ArgumentOutOfRangeException(nameof(perms));
             if (Convert.ToInt32(perms) == 0) throw new ArgumentOutOfRangeException(nameof(perms));
@@ -412,16 +416,8 @@ namespace CompuMaster.Ocs
             else if (public_upload == OcsBoolParam.False)
                 request.AddQueryParameter("publicUpload", "false");
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -596,7 +592,7 @@ namespace CompuMaster.Ocs
         /// <returns><c>true</c>, if user was created, <c>false</c> otherwise</returns>
         /// <param name="username">name of user to be created</param>
         /// <param name="initialPassword">password for user being created</param> 
-        public bool CreateUser(string username, string initialPassword)
+        public void CreateUser(string username, string initialPassword)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users"), Method.Post);
             request.AddHeader("OCS-APIREQUEST", "true");
@@ -604,16 +600,8 @@ namespace CompuMaster.Ocs
             request.AddParameter("userid", username);
             request.AddParameter("password", initialPassword);
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -621,7 +609,7 @@ namespace CompuMaster.Ocs
         /// </summary>
         /// <returns><c>true</c>, if user was deleted, <c>false</c> otherwise</returns>
         /// <param name="username">name of user to be deleted</param>
-        public bool DeleteUser(string username)
+        public void DeleteUser(string username)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}", Method.Delete);
             request.AddHeader("OCS-APIREQUEST", "true");
@@ -629,16 +617,8 @@ namespace CompuMaster.Ocs
             //request.AddUrlSegment("userid", username);
             ApplyUrlSegment(request, "userid", username);
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -753,7 +733,7 @@ namespace CompuMaster.Ocs
             request.AddParameter("key", OCSUserAttributeKeyName[Convert.ToInt32(key)]);
             request.AddParameter("value", value);
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
             CheckOcsStatus(response);
             return true;
         }
@@ -764,7 +744,7 @@ namespace CompuMaster.Ocs
         /// <returns><c>true</c>, if user was added to group, <c>false</c> otherwise</returns>
         /// <param name="username">name of user to be added</param>
         /// <param name="groupName">name of group user is to be added to</param>
-        public bool AddUserToGroup(string username, string groupName)
+        public void AddUserToGroup(string username, string groupName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}/groups", Method.Post);
             request.AddHeader("OCS-APIREQUEST", "true");
@@ -773,16 +753,8 @@ namespace CompuMaster.Ocs
             ApplyUrlSegment(request, "userid", username);
             request.AddParameter("groupid", groupName);
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -823,7 +795,7 @@ namespace CompuMaster.Ocs
         /// <returns><c>true</c>, if user was removed from group, <c>false</c> otherwise</returns>
         /// <param name="username">name of user to be removed</param>
         /// <param name="groupName">name of group user is to be removed from</param>
-        public bool RemoveUserFromGroup(string username, string groupName)
+        public void RemoveUserFromGroup(string username, string groupName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}/groups", Method.Delete);
             request.AddHeader("OCS-APIREQUEST", "true");
@@ -832,16 +804,8 @@ namespace CompuMaster.Ocs
             ApplyUrlSegment(request, "userid", username);
             request.AddParameter("groupid", groupName);
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -850,7 +814,7 @@ namespace CompuMaster.Ocs
         /// <returns><c>true</c>, if user was added to sub admin group, <c>false</c> otherwise</returns>
         /// <param name="username">name of user to be added to subadmin group</param>
         /// <param name="groupName">name of subadmin group</param>
-        public bool AddUserToSubAdminGroup(string username, string groupName)
+        public void AddUserToSubAdminGroup(string username, string groupName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}/subadmins", Method.Post);
             request.AddHeader("OCS-APIREQUEST", "true");
@@ -859,16 +823,8 @@ namespace CompuMaster.Ocs
             ApplyUrlSegment(request, "userid", username);
             request.AddParameter("groupid", groupName);
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -890,7 +846,7 @@ namespace CompuMaster.Ocs
             {
                 CheckOcsStatus(response);
             }
-            catch (OCSResponseError ocserr)
+            catch (OcsResponseError ocserr)
             {
                 if (ocserr.OcsStatusCode.Equals("102")) // empty response results in a OCS 102 Error
                     return new List<string>();
@@ -917,7 +873,7 @@ namespace CompuMaster.Ocs
         /// <returns><c>true</c>, if user from sub admin group was removed, <c>false</c> otherwise</returns>
         /// <param name="username">Username</param>
         /// <param name="groupName">Group name</param>
-        public bool RemoveUserFromSubAdminGroup(string username, string groupName)
+        public void RemoveUserFromSubAdminGroup(string username, string groupName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}/subadmins", Method.Delete);
             request.AddHeader("OCS-APIREQUEST", "true");
@@ -926,16 +882,8 @@ namespace CompuMaster.Ocs
             ApplyUrlSegment(request, "userid", username);
             request.AddParameter("groupid", groupName);
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
         #endregion
 
@@ -945,23 +893,15 @@ namespace CompuMaster.Ocs
         /// </summary>
         /// <returns><c>true</c>, if group was created, <c>false</c> otherwise</returns>
         /// <param name="groupName">name of group to be created</param>
-        public bool CreateGroup(string groupName)
+        public void CreateGroup(string groupName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "groups"), Method.Post);
             request.AddHeader("OCS-APIREQUEST", "true");
 
             request.AddParameter("groupid", groupName);
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -969,7 +909,7 @@ namespace CompuMaster.Ocs
         /// </summary>
         /// <returns><c>true</c>, if group was deleted, <c>false</c> otherwise</returns>
         /// <param name="groupName">Group name</param>
-        public bool DeleteGroup(string groupName)
+        public void DeleteGroup(string groupName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "groups") + "/{groupid}", Method.Delete);
             request.AddHeader("OCS-APIREQUEST", "true");
@@ -977,16 +917,8 @@ namespace CompuMaster.Ocs
             //request.AddUrlSegment("groupid", groupName);
             ApplyUrlSegment(request, "groupid", groupName);
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -1080,7 +1012,7 @@ namespace CompuMaster.Ocs
         /// <param name="app">application id</param>
         /// <param name="key">key of the attribute to set</param>
         /// <param name="value">value to set</param>
-        public bool SetAttribute(string app, string key, string value)
+        public void SetAttribute(string app, string key, string value)
         {
             var path = "setattribute" + "/" + app + "/" + WebUtility.UrlEncode(key);
 
@@ -1088,16 +1020,8 @@ namespace CompuMaster.Ocs
             request.AddHeader("OCS-APIREQUEST", "true");
             request.AddParameter("value", value);
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -1106,23 +1030,15 @@ namespace CompuMaster.Ocs
         /// <returns><c>true</c>, if attribute was deleted, <c>false</c> otherwise</returns>
         /// <param name="app">application id</param>
         /// <param name="key">key of the attribute to delete</param>
-        public bool DeleteAttribute(string app, string key)
+        public void DeleteAttribute(string app, string key)
         {
             var path = "deleteattribute" + "/" + app + "/" + WebUtility.UrlEncode(key);
 
             var request = new RestRequest(GetOcsPath(ocsServiceData, path), Method.Delete);
             request.AddHeader("OCS-APIREQUEST", "true");
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
         #endregion
 
@@ -1167,7 +1083,7 @@ namespace CompuMaster.Ocs
         /// </summary>
         /// <returns><c>true</c>, if app was enabled, <c>false</c> otherwise</returns>
         /// <param name="appName">Name of app to be enabled</param>
-        public bool EnableApp(string appName)
+        public void EnableApp(string appName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "apps") + "/{appid}", Method.Post);
             request.AddHeader("OCS-APIREQUEST", "true");
@@ -1175,16 +1091,8 @@ namespace CompuMaster.Ocs
             //request.AddUrlSegment("appid", appName);
             ApplyUrlSegment(request, "appid", appName);
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -1192,7 +1100,7 @@ namespace CompuMaster.Ocs
         /// </summary>
         /// <returns><c>true</c>, if app was disabled, <c>false</c> otherwise</returns>
         /// <param name="appName">Name of app to be disabled</param>
-        public bool DisableApp(string appName)
+        public void DisableApp(string appName)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "apps") + "/{appid}", Method.Delete);
             request.AddHeader("OCS-APIREQUEST", "true");
@@ -1200,16 +1108,8 @@ namespace CompuMaster.Ocs
             //request.AddUrlSegment("appid", appName);
             ApplyUrlSegment(request, "appid", appName);
 
-            var response = rest.ExecuteAsync<OCS>(request).Result;
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    return true;
-                else
-                    throw new OCSResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-
-            return false;
+            var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
+            CheckOcsResponseStatus(response);
         }
         #endregion
         #endregion
@@ -1443,6 +1343,26 @@ namespace CompuMaster.Ocs
         /// Checks the validity of the OCS Request. If invalid a exception is thrown
         /// </summary>
         /// <param name="response">OCS Response</param>
+        private void CheckOcsResponseStatus(RestResponse<OcsResponseResult> response)
+        {
+            if (response.Data != null)
+            {
+                if (response.Data.Meta.StatusCode == 100)
+                    //successful
+                    return;
+                else
+                    throw new OcsResponseError(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
+            }
+            else if (String.IsNullOrEmpty(response.Content))
+                throw new OcsResponseError("Missing OCS response content", 0, null, response.StatusCode);
+            else
+                throw new OcsResponseError("OCS failure (invalid OCS response content))", 0, null, 0);
+        }
+
+        /// <summary>
+        /// Checks the validity of the OCS Request. If invalid a exception is thrown
+        /// </summary>
+        /// <param name="response">OCS Response</param>
         private void CheckOcsStatus(RestResponse response)
         {
             if (response.Content == null || response.Content == "")
@@ -1461,7 +1381,7 @@ namespace CompuMaster.Ocs
                 if (ocsStatus == null)
                     throw new ResponseError("Empty OCS status or invalid response data", response.StatusCode, response.Content);
                 if (!ocsStatus.Equals("100"))
-                    throw new OCSResponseError(GetFromMeta(response.Content, "message"), int.Parse(ocsStatus), ocsStatusText, response.StatusCode);
+                    throw new OcsResponseError(GetFromMeta(response.Content, "message"), int.Parse(ocsStatus), ocsStatusText, response.StatusCode);
             }
         }
 

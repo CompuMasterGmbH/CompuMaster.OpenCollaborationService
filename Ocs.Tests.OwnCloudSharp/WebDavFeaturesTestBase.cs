@@ -50,7 +50,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			{
 				if (!c.Exists("/")) throw new Exception("Root directory not found");
 			}
-			catch (CompuMaster.Ocs.Exceptions.OCSResponseError ex)
+			catch (CompuMaster.Ocs.Exceptions.OcsResponseError ex)
 			{
 				throw new Exception("Login user not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
 			}
@@ -91,9 +91,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test ()]
 		public void Upload ()
 		{
+			if (c.Exists(TestSettings.testFileName))
+				c.Delete(TestSettings.testFileName);
 			MemoryStream payload = new MemoryStream (payloadData);
-			var result = c.Upload (TestSettings.testFileName, payload, "text/plain");
-			Assert.True (result);
+			c.Upload (TestSettings.testFileName, payload, "text/plain");
+			Assert.True(true);
 		}
 
 		/// <summary>
@@ -101,13 +103,12 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// </summary>
 		[Test ()]
 		public void Exists() {
-			MemoryStream payload = new MemoryStream (payloadData);
-			var result = c.Upload (TestSettings.testFileName, payload, "text/plain");
-
-			if (result)
-				result = c.Exists (TestSettings.testFileName);
-			
-			Assert.True (result);
+			if (!c.Exists(TestSettings.testFileName))
+			{
+				MemoryStream payload = new MemoryStream(payloadData);
+				c.Upload(TestSettings.testFileName, payload, "text/plain");
+			}
+			Assert.True (c.Exists (TestSettings.testFileName));
 		}
 
 		/// <summary>
@@ -115,8 +116,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// </summary>
 		[Test ()]
 		public void NotExists() {
-			var result = c.Exists ("/this-does-not-exist.txt");
-			Assert.False (result);
+			Assert.False (c.Exists ("/this-does-not-exist.txt"));
 		}
 
 		/// <summary>
@@ -124,15 +124,14 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// </summary>
 		[Test ()]
 		public void Download() {
-			MemoryStream payload = new MemoryStream (payloadData);
-			var result = c.Upload (TestSettings.testFileName, payload, "text/plain");
-
-			if (result) {
-				var content = c.Download (TestSettings.testFileName);
-				result = (content != null) ? true : false;
+			if (!c.Exists(TestSettings.testFileName))
+			{
+				MemoryStream payload = new MemoryStream(payloadData);
+				c.Upload(TestSettings.testFileName, payload, "text/plain");
 			}
 
-			Assert.True (result);
+			var content = c.Download (TestSettings.testFileName);
+			Assert.IsNotNull(content);
 		}
 
 		/// <summary>
@@ -140,13 +139,13 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// </summary>
 		[Test ()]
 		public void Delete() {
-			MemoryStream payload = new MemoryStream (payloadData);
-			var result = c.Upload (TestSettings.testFileName, payload, "text/plain");
-
-			if (result)
-				result = c.Delete (TestSettings.testFileName);
-
-			Assert.True (result);
+			if (!c.Exists(TestSettings.testFileName))
+			{
+				MemoryStream payload = new MemoryStream(payloadData);
+				c.Upload(TestSettings.testFileName, payload, "text/plain");
+			}
+			c.Delete (TestSettings.testFileName);
+			Assert.True (true);
 		}
 
 		/// <summary>
@@ -156,10 +155,13 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		public void CreateDirectory()
 		{
 			if (c.Exists(TestSettings.testDirName))
-				Assert.True(c.Delete(TestSettings.testDirName)); //cleanup before core testing
+				//cleanup before core testing
+				c.Delete(TestSettings.testDirName);
 
-			Assert.True(c.CreateDirectory(TestSettings.testDirName));
-			Assert.False(c.CreateDirectory(TestSettings.testDirName)); //already exists
+			c.CreateDirectory(TestSettings.testDirName);
+
+			//already exists
+			Assert.Catch(() => { c.CreateDirectory(TestSettings.testDirName); });
 		}
 
 		/// <summary>
@@ -169,9 +171,9 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		public void DeleteDirectory()
 		{
 			if (!c.Exists(TestSettings.testDirName))
-				Assert.True(c.CreateDirectory(TestSettings.testDirName));
+				c.CreateDirectory(TestSettings.testDirName);
 
-			Assert.True(c.Delete(TestSettings.testDirName));
+			c.Delete(TestSettings.testDirName);
 		}
 
 		/// <summary>
@@ -181,11 +183,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		public void List() {
 			//prepare test environment
 			MemoryStream payload = new MemoryStream(payloadData);
-			Assert.True(c.Upload(TestSettings.testFileName, payload, "text/plain"));
+			c.Upload(TestSettings.testFileName, payload, "text/plain");
 			if (!c.Exists(TestSettings.testDirName))
-				Assert.True(c.CreateDirectory(TestSettings.testDirName));
+				c.CreateDirectory(TestSettings.testDirName);
 			payload = new MemoryStream(payloadData);
-			Assert.True(c.Upload(TestSettings.testDirName + TestSettings.testFileName, payload, "text/plain"));
+			c.Upload(TestSettings.testDirName + TestSettings.testFileName, payload, "text/plain");
 
 			//check test environment - root dir listing
 			Assert.Catch<ArgumentNullException>(() => { var result = c.List(null); });
@@ -229,11 +231,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			//prepare test environment
 			MemoryStream payload = new MemoryStream(payloadData);
-			Assert.True(c.Upload(TestSettings.testFileName, payload, "text/plain"));
+			c.Upload(TestSettings.testFileName, payload, "text/plain");
 			if (!c.Exists(TestSettings.testDirName))
-				Assert.True(c.CreateDirectory(TestSettings.testDirName));
+				c.CreateDirectory(TestSettings.testDirName);
 			payload = new MemoryStream(payloadData);
-			Assert.True(c.Upload(TestSettings.testDirName + TestSettings.testFileName, payload, "text/plain"));
+			c.Upload(TestSettings.testDirName + TestSettings.testFileName, payload, "text/plain");
 
 			//check test environment
 			Assert.Catch<ArgumentNullException>(() => { var result = c.GetResourceInfo(null); });
@@ -264,15 +266,13 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test ()]
 		public void Copy() {
 			MemoryStream payload = new MemoryStream (payloadData);
-			var result = c.Upload (TestSettings.testFileName, payload, "text/plain");
+			c.Upload (TestSettings.testFileName, payload, "text/plain");
 
-			if ((result) && (!c.Exists("/copy-test")))
-				result = c.CreateDirectory ("/copy-test");
+			if (!c.Exists("/copy-test"))
+				c.CreateDirectory ("/copy-test");
 
-			if (result)
-				result = c.Copy (TestSettings.testFileName, "/copy-test/file.txt");
-
-			Assert.True (result);
+			c.Copy (TestSettings.testFileName, "/copy-test/file.txt");
+			Assert.True (true);
 		}
 
 		/// <summary>
@@ -281,15 +281,14 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test ()]
 		public void Move() {
 			MemoryStream payload = new MemoryStream (payloadData);
-			var result = c.Upload (TestSettings.testFileName, payload, "text/plain");
+			c.Upload (TestSettings.testFileName, payload, "text/plain");
 
-			if ((result) && (!c.Exists("/move-test")))
-				result = c.CreateDirectory ("/move-test");
+			if (!c.Exists("/move-test"))
+				c.CreateDirectory ("/move-test");
 
-			if (result)
-				result = c.Move (TestSettings.testFileName, "/move-test/file.txt");
+			c.Move (TestSettings.testFileName, "/move-test/file.txt");
 
-			Assert.True (result);
+			Assert.True (true);
 		}
 
 		/// <summary>
@@ -298,17 +297,13 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test ()]
 		public void DownloadDirectoryAsZip() {
 			MemoryStream payload = new MemoryStream (payloadData);
-			var result = c.Upload (TestSettings.testFileName, payload, "text/plain");
+			c.Upload (TestSettings.testFileName, payload, "text/plain");
 
-			if ((result) && (!c.Exists("/zip-test")))
-				result = c.CreateDirectory ("/zip-test");
+			if (!c.Exists("/zip-test"))
+				c.CreateDirectory ("/zip-test");
 
-			if (result) {
-				var content = c.DownloadDirectoryAsZip ("/zip-test");
-				result = (content != null) ? true : false;
-			}
-
-			Assert.True (result);
+			var content = c.DownloadDirectoryAsZip ("/zip-test");
+			Assert.IsNotNull (content);
 		}
 		#endregion
 	}
