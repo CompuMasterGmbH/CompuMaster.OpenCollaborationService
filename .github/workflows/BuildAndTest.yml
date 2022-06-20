@@ -106,47 +106,84 @@ jobs:
             - name: Build
               run: dotnet build --configuration=${{env.BUILD_CONFIGURATION}} --no-restore
 
-            - name: Run Unit Tests
-              run: dotnet test --framework net6.0 --results-directory test-results --logger junit --configuration=${{env.BUILD_CONFIGURATION}} --no-restore
+            - name: Run Unit Tests (CompuMaster.Ocs.TrivialTests)
+              run: dotnet test --framework net6.0 --results-directory test-results-trivial --logger junit --configuration=${{env.BUILD_CONFIGURATION}} --no-restore --filter CompuMaster.Ocs.Test
+            - name: Run Unit Tests (CompuMaster.Ocs.OwnCloudSharpTests)
+              run: dotnet test --framework net6.0 --results-directory test-results-ocs --logger junit --configuration=${{env.BUILD_CONFIGURATION}} --no-restore --filter CompuMaster.Ocs.OwnCloudSharpTests
 
-            - name: Dir Listing (Win) test-results
+            - name: Dir Listing (Win) test-results-trivial (CompuMaster.Ocs.TrivialTests)
               if: startsWith(matrix.os, 'windows')
-              run: dir test-results
-            - name: Dir Listing (Linux/Mac) test-results
+              run: dir test-results-trivial
+            - name: Dir Listing (Linux/Mac) test-results-trivial (CompuMaster.Ocs.TrivialTests)
               if: (!startsWith(matrix.os, 'windows'))
-              run: ls -la test-results
+              run: ls -la test-results-trivial
+
+            - name: Dir Listing (Win) test-results-ocs (CompuMaster.Ocs.OwnCloudSharpTests)
+              if: startsWith(matrix.os, 'windows')
+              run: dir test-results-ocs
+            - name: Dir Listing (Linux/Mac) test-results-ocs (CompuMaster.Ocs.OwnCloudSharpTests)
+              if: (!startsWith(matrix.os, 'windows'))
+              run: ls -la test-results-ocs
 
             #Following lines maybe required again after test&dev?!
             #  # the action is useless on pull_request events
             #  # (it can not create check runs or pull request comments)
             #  if: always() #&& startsWith(matrix.os, 'ubuntu') #&& github.event_name != 'pull_request'
 
-            - name: Unit Test Results (Linux)
+            - name: Unit Test Results (Linux) (CompuMaster.Ocs.TrivialTests)
               uses: EnricoMi/publish-unit-test-result-action@v1
               if: always() && startsWith(matrix.os, 'ubuntu')
               with:
                 github_token: ${{ secrets.GITHUB_TOKEN }}
-                files: "test-results/TestResults.xml"
+                files: "test-results-trivial/TestResults.xml"
                 check_run_annotations: all tests
                 comment_title: Unit Test Statistics (${{matrix.os}})
                 check_name: Unit Test Results (${{matrix.os}})
                 report_individual_runs: true
       
-            - name: Unit Test Results (Win/Mac)
+            - name: Unit Test Results (Win/Mac) (CompuMaster.Ocs.TrivialTests)
               uses: EnricoMi/publish-unit-test-result-action/composite@v1
               if: always() && (!(startsWith(matrix.os, 'ubuntu'))) 
               with:
                 github_token: ${{ secrets.GITHUB_TOKEN }}
-                files: "test-results/TestResults.xml"
+                files: "test-results-trivial/TestResults.xml"
                 check_run_annotations: all tests
                 comment_title: Unit Test Statistics (${{matrix.os}})
                 check_name: Unit Test Results (${{matrix.os}})
                 report_individual_runs: true
       
-            - name: Publish Unit Test Results
+            - name: Publish Unit Test Results (CompuMaster.Ocs.TrivialTests)
               uses: actions/upload-artifact@v2
               if: always()
               with:
                 name: NUnit Test Results ${{ matrix.os }}
-                path: test-results/TestResults.xml
+                path: test-results-trivial/TestResults.xml
 
+            - name: Unit Test Results (Linux) (CompuMaster.Ocs.OwnCloudSharpTests)
+              uses: EnricoMi/publish-unit-test-result-action@v1
+              if: always() && startsWith(matrix.os, 'ubuntu')
+              with:
+                github_token: ${{ secrets.GITHUB_TOKEN }}
+                files: "test-results-ocs/TestResults.xml"
+                check_run_annotations: all tests
+                comment_title: Unit Test Statistics (${{matrix.os}})
+                check_name: Unit Test Results (${{matrix.os}})
+                report_individual_runs: true
+      
+            - name: Unit Test Results (Win/Mac) (CompuMaster.Ocs.OwnCloudSharpTests)
+              uses: EnricoMi/publish-unit-test-result-action/composite@v1
+              if: always() && (!(startsWith(matrix.os, 'ubuntu'))) 
+              with:
+                github_token: ${{ secrets.GITHUB_TOKEN }}
+                files: "test-results-ocs/TestResults.xml"
+                check_run_annotations: all tests
+                comment_title: Unit Test Statistics (${{matrix.os}})
+                check_name: Unit Test Results (${{matrix.os}})
+                report_individual_runs: true
+      
+            - name: Publish Unit Test Results (CompuMaster.Ocs.OwnCloudSharpTests)
+              uses: actions/upload-artifact@v2
+              if: always()
+              with:
+                name: NUnit Test Results ${{ matrix.os }}
+                path: test-results-ocs/TestResults.xml
