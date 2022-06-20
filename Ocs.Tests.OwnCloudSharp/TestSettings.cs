@@ -32,6 +32,14 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 
 		public string testFileName = "/CM.Ocs.owncloud-sharp test.txt";
 		public string testDirName = "/CM.Ocs.owncloud-sharp test-folder";
+
+		public bool IgnoreTestEnvironment
+		{
+			get
+			{
+				return (String.IsNullOrEmpty(ownCloudInstanceUrl) || String.IsNullOrEmpty(ownCloudUser) || ownCloudUser == "none" || String.IsNullOrEmpty(ownCloudPassword) || ownCloudPassword == "none");
+			}
+		}
 	}
 }
 

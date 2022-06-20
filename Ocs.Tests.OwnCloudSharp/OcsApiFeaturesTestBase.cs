@@ -66,32 +66,34 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 
 			if (TestSettings.ownCloudInstanceUrl == null || TestSettings.ownCloudUser == null)
 				Assert.Ignore("No login credentials assigned for unit tests");
+			else
+			{
+				try
+				{
+					if (!c.Exists("/")) throw new Exception("Root directory not found");
+				}
+				catch (CompuMaster.Ocs.Exceptions.OcsResponseException ex)
+				{
+					throw new Exception("Login user \"" + TestSettings.ownCloudUser + "\" not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
+				}
+				catch (Exception ex)
+				{
+					throw new Exception("Login failed (login user \"" + TestSettings.ownCloudUser + "\")", ex);
+				}
 
-			try
-			{
-				if (!c.Exists("/")) throw new Exception("Root directory not found");
-			}
-			catch (CompuMaster.Ocs.Exceptions.OcsResponseException ex)
-			{
-				throw new Exception("Login user \"" + TestSettings.ownCloudUser + "\" not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
-			}
-			catch (Exception ex)
-			{
-				throw new Exception("Login failed (login user \"" + TestSettings.ownCloudUser + "\")", ex);
-			}
-
-			try
-			{
-				if (!c.UserExists("sharetest"))
-					c.CreateUser("sharetest", "test");
-				if (!c.GroupExists("testgroup"))
-					c.CreateGroup("testgroup");
-				if (!c.IsUserInGroup("sharetest", "testgroup"))
-					c.AddUserToGroup("sharetest", "testgroup");
-			}
-			catch (CompuMaster.Ocs.Exceptions.OcsResponseException ex)
-			{
-				throw new Exception("Login user not authorized to manage users/groups (status code: " + ex.OcsStatusCode + ")", ex);
+				try
+				{
+					if (!c.UserExists("sharetest"))
+						c.CreateUser("sharetest", "test");
+					if (!c.GroupExists("testgroup"))
+						c.CreateGroup("testgroup");
+					if (!c.IsUserInGroup("sharetest", "testgroup"))
+						c.AddUserToGroup("sharetest", "testgroup");
+				}
+				catch (CompuMaster.Ocs.Exceptions.OcsResponseException ex)
+				{
+					throw new Exception("Login user not authorized to manage users/groups (status code: " + ex.OcsStatusCode + ")", ex);
+				}
 			}
 		}
 
@@ -101,125 +103,128 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[OneTimeTearDown]
 		public void Cleanup()
 		{
-			#region OCS Share Test CleanUp
-			if (c.Exists("/share-link-test.txt"))
+			if (!TestSettings.IgnoreTestEnvironment)
 			{
-				if (c.IsShared("/share-link-test.txt"))
+				#region OCS Share Test CleanUp
+				if (c.Exists("/share-link-test.txt"))
 				{
-					var shares = c.GetShares("/share-link-test.txt");
-					foreach (var share in shares)
-						c.DeleteShare(share.ShareId);
+					if (c.IsShared("/share-link-test.txt"))
+					{
+						var shares = c.GetShares("/share-link-test.txt");
+						foreach (var share in shares)
+							c.DeleteShare(share.ShareId);
+					}
+					c.Delete("/share-link-test.txt");
 				}
-				c.Delete("/share-link-test.txt");
-			}
 
-			if (c.Exists("/share-user-test.txt"))
-			{
-				if (c.IsShared("/share-user-test.txt"))
+				if (c.Exists("/share-user-test.txt"))
 				{
-					var shares = c.GetShares("/share-user-test.txt");
-					foreach (var share in shares)
-						c.DeleteShare(share.ShareId);
+					if (c.IsShared("/share-user-test.txt"))
+					{
+						var shares = c.GetShares("/share-user-test.txt");
+						foreach (var share in shares)
+							c.DeleteShare(share.ShareId);
+					}
+					c.Delete("/share-user-test.txt");
 				}
-				c.Delete("/share-user-test.txt");
-			}
 
-			if (c.Exists("/share-group-test.txt"))
-			{
-				if (c.IsShared("/share-group-test.txt"))
+				if (c.Exists("/share-group-test.txt"))
 				{
-					var shares = c.GetShares("/share-group-test.txt");
-					foreach (var share in shares)
-						c.DeleteShare(share.ShareId);
+					if (c.IsShared("/share-group-test.txt"))
+					{
+						var shares = c.GetShares("/share-group-test.txt");
+						foreach (var share in shares)
+							c.DeleteShare(share.ShareId);
+					}
+					c.Delete("/share-group-test.txt");
 				}
-				c.Delete("/share-group-test.txt");
-			}
 
-			if (c.Exists("/share-update-test.txt"))
-			{
-				if (c.IsShared("/share-update-test.txt"))
+				if (c.Exists("/share-update-test.txt"))
 				{
-					var shares = c.GetShares("/share-update-test.txt");
-					foreach (var share in shares)
-						c.DeleteShare(share.ShareId);
+					if (c.IsShared("/share-update-test.txt"))
+					{
+						var shares = c.GetShares("/share-update-test.txt");
+						foreach (var share in shares)
+							c.DeleteShare(share.ShareId);
+					}
+					c.Delete("/share-update-test.txt");
 				}
-				c.Delete("/share-update-test.txt");
-			}
 
-			if (c.Exists("/share-delete-test.txt"))
-			{
-				if (c.IsShared("/share-delete-test.txt"))
+				if (c.Exists("/share-delete-test.txt"))
 				{
-					var shares = c.GetShares("/share-delete-test.txt");
-					foreach (var share in shares)
-						c.DeleteShare(share.ShareId);
+					if (c.IsShared("/share-delete-test.txt"))
+					{
+						var shares = c.GetShares("/share-delete-test.txt");
+						foreach (var share in shares)
+							c.DeleteShare(share.ShareId);
+					}
+					c.Delete("/share-delete-test.txt");
 				}
-				c.Delete("/share-delete-test.txt");
-			}
 
-			if (c.Exists("/share-shared-test.txt"))
-			{
-				if (c.IsShared("/share-shared-test.txt"))
+				if (c.Exists("/share-shared-test.txt"))
 				{
-					var shares = c.GetShares("/share-shared-test.txt");
-					foreach (var share in shares)
-						c.DeleteShare(share.ShareId);
+					if (c.IsShared("/share-shared-test.txt"))
+					{
+						var shares = c.GetShares("/share-shared-test.txt");
+						foreach (var share in shares)
+							c.DeleteShare(share.ShareId);
+					}
+					c.Delete("/share-shared-test.txt");
 				}
-				c.Delete("/share-shared-test.txt");
-			}
 
-			if (c.Exists("/share-get-test.txt"))
-			{
-				if (c.IsShared("/share-get-test.txt"))
+				if (c.Exists("/share-get-test.txt"))
 				{
-					var shares = c.GetShares("/share-get-test.txt");
-					foreach (var share in shares)
-						c.DeleteShare(share.ShareId);
+					if (c.IsShared("/share-get-test.txt"))
+					{
+						var shares = c.GetShares("/share-get-test.txt");
+						foreach (var share in shares)
+							c.DeleteShare(share.ShareId);
+					}
+					c.Delete("/share-get-test.txt");
 				}
-				c.Delete("/share-get-test.txt");
-			}
-			#endregion
+				#endregion
 
-			#region OCS User Test cleanup
-			if (c.UserExists("octestusr1"))
-			{
-				var c1 = new OcsClient(TestSettings.ownCloudInstanceUrl, "octestusr1", "octestpwd");
-				var shares = c1.GetShares("");
-				foreach (var share in shares)
-					c1.DeleteShare(share.ShareId);
-				c.DeleteUser("octestusr1");
-			}
-			if (c.UserExists("octestusr"))
-			{
-				var c2 = new OcsClient(TestSettings.ownCloudInstanceUrl, "octestusr", "octestpwd");
-				var shares = c2.GetShares("");
-				foreach (var share in shares)
-					c2.DeleteShare(share.ShareId);
-				c.DeleteUser("octestusr");
-			}
-			if (c.UserExists("octestusr-subadmin"))
-			{
-				var c2 = new OcsClient(TestSettings.ownCloudInstanceUrl, "octestusr-subadmin", "test-octestusr-subadmin");
-				var shares = c2.GetShares("");
-				foreach (var share in shares)
-					c2.DeleteShare(share.ShareId);
-				c.DeleteUser("octestusr-subadmin");
-			}
-			#endregion
+				#region OCS User Test cleanup
+				if (c.UserExists("octestusr1"))
+				{
+					var c1 = new OcsClient(TestSettings.ownCloudInstanceUrl, "octestusr1", "octestpwd");
+					var shares = c1.GetShares("");
+					foreach (var share in shares)
+						c1.DeleteShare(share.ShareId);
+					c.DeleteUser("octestusr1");
+				}
+				if (c.UserExists("octestusr"))
+				{
+					var c2 = new OcsClient(TestSettings.ownCloudInstanceUrl, "octestusr", "octestpwd");
+					var shares = c2.GetShares("");
+					foreach (var share in shares)
+						c2.DeleteShare(share.ShareId);
+					c.DeleteUser("octestusr");
+				}
+				if (c.UserExists("octestusr-subadmin"))
+				{
+					var c2 = new OcsClient(TestSettings.ownCloudInstanceUrl, "octestusr-subadmin", "test-octestusr-subadmin");
+					var shares = c2.GetShares("");
+					foreach (var share in shares)
+						c2.DeleteShare(share.ShareId);
+					c.DeleteUser("octestusr-subadmin");
+				}
+				#endregion
 
-			#region OCS App Attribute Test Cleanup
-			if (c.GetAttribute("files", "test").Count > 0)
-				c.DeleteAttribute("files", "test");
-			#endregion
+				#region OCS App Attribute Test Cleanup
+				if (c.GetAttribute("files", "test").Count > 0)
+					c.DeleteAttribute("files", "test");
+				#endregion
 
-			#region General CleanUp
-			var c3 = new OcsClient(TestSettings.ownCloudInstanceUrl, "sharetest", "test");
-			var c3shares = c3.GetShares("");
-			foreach (var share in c3shares)
-				c3.DeleteShare(share.ShareId);
-			c.RemoveUserFromGroup("sharetest", "testgroup");
-			c.DeleteGroup("testgroup");
-			c.DeleteUser("sharetest");
+				#region General CleanUp
+				var c3 = new OcsClient(TestSettings.ownCloudInstanceUrl, "sharetest", "test");
+				var c3shares = c3.GetShares("");
+				foreach (var share in c3shares)
+					c3.DeleteShare(share.ShareId);
+				c.RemoveUserFromGroup("sharetest", "testgroup");
+				c.DeleteGroup("testgroup");
+				c.DeleteUser("sharetest");
+			}
 			#endregion
 		}
 		#endregion

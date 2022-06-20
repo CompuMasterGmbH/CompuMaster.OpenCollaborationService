@@ -47,20 +47,22 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			c = new OcsClient(TestSettings.ownCloudInstanceUrl, TestSettings.ownCloudUser, TestSettings.ownCloudPassword);
 			payloadData = System.Text.Encoding.UTF8.GetBytes("owncloud# NUnit Payload\r\nPlease feel free to delete");
 
-			if (TestSettings.ownCloudInstanceUrl == null || TestSettings.ownCloudUser == null)
+			if (TestSettings.IgnoreTestEnvironment)
 				Assert.Ignore("No login credentials assigned for unit tests");
-
-			try
+			else
 			{
-				if (!c.Exists("/")) throw new Exception("Root directory not found");
-			}
-			catch (CompuMaster.Ocs.Exceptions.OcsResponseException ex)
-			{
-				throw new Exception("Login user \"" + TestSettings.ownCloudUser + "\" not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
-			}
-			catch (Exception ex)
-			{
-				throw new Exception("Login failed (login user \"" + TestSettings.ownCloudUser + "\")", ex);
+				try
+				{
+					if (!c.Exists("/")) throw new Exception("Root directory not found");
+				}
+				catch (CompuMaster.Ocs.Exceptions.OcsResponseException ex)
+				{
+					throw new Exception("Login user \"" + TestSettings.ownCloudUser + "\" not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
+				}
+				catch (Exception ex)
+				{
+					throw new Exception("Login failed (login user \"" + TestSettings.ownCloudUser + "\")", ex);
+				}
 			}
 		}
 
@@ -70,23 +72,29 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[OneTimeTearDown]
 		public void Cleanup()
 		{
-			#region DAV Test CleanUp
-			if (c.Exists(TestSettings.testFileName))
-				c.Delete (TestSettings.testFileName);
-			if (c.Exists(TestSettings.testDirName))
-				c.Delete (TestSettings.testDirName);
-			if (c.Exists ("/copy-test")) {
-				//c.Delete ("/copy-test/file.txt");
-				c.Delete ("/copy-test");
-			}
-			if (c.Exists ("/move-test")) {
-				//c.Delete ("/move-test/file.txt");
-				c.Delete ("/move-test");
-			}
+			if (!TestSettings.IgnoreTestEnvironment)
+			{
+				#region DAV Test CleanUp
+				if (c.Exists(TestSettings.testFileName))
+					c.Delete(TestSettings.testFileName);
+				if (c.Exists(TestSettings.testDirName))
+					c.Delete(TestSettings.testDirName);
+				if (c.Exists("/copy-test"))
+				{
+					//c.Delete ("/copy-test/file.txt");
+					c.Delete("/copy-test");
+				}
+				if (c.Exists("/move-test"))
+				{
+					//c.Delete ("/move-test/file.txt");
+					c.Delete("/move-test");
+				}
 
-			if (c.Exists ("/zip-test")) {
-				//c.Delete ("/zip-test/file.txt");
-				c.Delete ("/zip-test");
+				if (c.Exists("/zip-test"))
+				{
+					//c.Delete ("/zip-test/file.txt");
+					c.Delete("/zip-test");
+				}
 			}
 			#endregion
 		}
