@@ -156,7 +156,7 @@ jobs:
               uses: actions/upload-artifact@v2
               if: always()
               with:
-                name: NUnit Test Results ${{ matrix.os }}
+                name: NUnit Test Results ${{ matrix.os }} (CompuMaster.Ocs.TrivialTests)
                 path: test-results-trivial/TestResults.xml
 
             - name: Unit Test Results (Linux) (CompuMaster.Ocs.OwnCloudSharpTests)
@@ -185,5 +185,5 @@ jobs:
               uses: actions/upload-artifact@v2
               if: always()
               with:
-                name: NUnit Test Results ${{ matrix.os }}
+                name: NUnit Test Results ${{ matrix.os }} (CompuMaster.Ocs.OwnCloudSharpTests)
                 path: test-results-ocs/TestResults.xml
