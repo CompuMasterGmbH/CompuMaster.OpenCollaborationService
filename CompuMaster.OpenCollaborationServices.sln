@@ -9,7 +9,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CompuMaster.Ocs.DemoApp", "
 EndProject
 Project("{778DAE3C-4631-46EA-AA77-85C1314464D9}") = "CompuMaster.Ocs.TrivialTests", "Ocs.Tests.Trivial\CompuMaster.Ocs.TrivialTests.vbproj", "{2543C8D5-4A7B-4610-9F17-138D5869A863}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CompuMaster.Ocs.OwnCloudSharpTests", "Ocs.Tests.OwnCloudSharp\CompuMaster.Ocs.OwnCloudSharpTests.csproj", "{A059F1B7-49F6-44A9-ADBD-013FFF9A349D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CompuMaster.Ocs.OwnCloudSharpTests", "Ocs.Tests.OwnCloudSharp\CompuMaster.Ocs.OwnCloudSharpTests.csproj", "{A059F1B7-49F6-44A9-ADBD-013FFF9A349D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,7 +39,6 @@ Global
 		{A059F1B7-49F6-44A9-ADBD-013FFF9A349D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A059F1B7-49F6-44A9-ADBD-013FFF9A349D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A059F1B7-49F6-44A9-ADBD-013FFF9A349D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A059F1B7-49F6-44A9-ADBD-013FFF9A349D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
