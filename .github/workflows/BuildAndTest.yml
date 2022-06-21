@@ -137,7 +137,7 @@ jobs:
                 github_token: ${{ secrets.GITHUB_TOKEN }}
                 files: "test-results-trivial/TestResults.xml"
                 check_run_annotations: all tests
-                comment_title: Unit Test Statistics (${{matrix.os}})
+                comment_title: Unit Test Statistics (${{matrix.os}}) (CompuMaster.Ocs.TrivialTests)
                 check_name: Unit Test Results (${{matrix.os}}) (CompuMaster.Ocs.TrivialTests)
                 report_individual_runs: true
       
@@ -148,7 +148,7 @@ jobs:
                 github_token: ${{ secrets.GITHUB_TOKEN }}
                 files: "test-results-trivial/TestResults.xml"
                 check_run_annotations: all tests
-                comment_title: Unit Test Statistics (${{matrix.os}})
+                comment_title: Unit Test Statistics (${{matrix.os}}) (CompuMaster.Ocs.TrivialTests)
                 check_name: Unit Test Results (${{matrix.os}}) (CompuMaster.Ocs.TrivialTests)
                 report_individual_runs: true
       
@@ -166,7 +166,7 @@ jobs:
                 github_token: ${{ secrets.GITHUB_TOKEN }}
                 files: "test-results-ocs/TestResults.xml"
                 check_run_annotations: all tests
-                comment_title: Unit Test Statistics (${{matrix.os}})
+                comment_title: Unit Test Statistics (${{matrix.os}}) (CompuMaster.Ocs.OwnCloudSharpTests)
                 check_name: Unit Test Results (${{matrix.os}}) (CompuMaster.Ocs.OwnCloudSharpTests)
                 report_individual_runs: true
       
@@ -177,7 +177,7 @@ jobs:
                 github_token: ${{ secrets.GITHUB_TOKEN }}
                 files: "test-results-ocs/TestResults.xml"
                 check_run_annotations: all tests
-                comment_title: Unit Test Statistics (${{matrix.os}})
+                comment_title: Unit Test Statistics (${{matrix.os}}) (CompuMaster.Ocs.OwnCloudSharpTests)
                 check_name: Unit Test Results (${{matrix.os}}) (CompuMaster.Ocs.OwnCloudSharpTests)
                 report_individual_runs: true
       
