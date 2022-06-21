@@ -138,7 +138,7 @@ jobs:
                 files: "test-results-trivial/TestResults.xml"
                 check_run_annotations: all tests
                 comment_title: Unit Test Statistics (${{matrix.os}})
-                check_name: Unit Test Results (${{matrix.os}})
+                check_name: Unit Test Results (${{matrix.os}}) (CompuMaster.Ocs.TrivialTests)
                 report_individual_runs: true
       
             - name: Unit Test Results (Win/Mac) (CompuMaster.Ocs.TrivialTests)
@@ -167,7 +167,7 @@ jobs:
                 files: "test-results-ocs/TestResults.xml"
                 check_run_annotations: all tests
                 comment_title: Unit Test Statistics (${{matrix.os}})
-                check_name: Unit Test Results (${{matrix.os}})
+                check_name: Unit Test Results (${{matrix.os}}) (CompuMaster.Ocs.OwnCloudSharpTests)
                 report_individual_runs: true
       
             - name: Unit Test Results (Win/Mac) (CompuMaster.Ocs.OwnCloudSharpTests)
