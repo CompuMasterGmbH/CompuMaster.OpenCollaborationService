@@ -1,5 +1,8 @@
 ﻿# CompuMaster.OpenCollaborationService
 
+[![Github Release](https://img.shields.io/github/release/CompuMasterGmbH/CompuMaster.Ocs.svg?maxAge=2592000&label=GitHub%20Release)](https://github.com/CompuMasterGmbH/CompuMaster.Ocs/releases) 
+[![NuGet CompuMaster.Ocs](https://img.shields.io/nuget/v/CompuMaster.Ocs.svg?maxAge=2592000&label=NuGet%20CM.Ocs)](https://www.nuget.org/packages/CompuMaster.Ocs) 
+
 An implementation for OpenCollaborationService (OCS) client 
 * for use with e.g. OwnCloud, NextCloud
 * for .NET Standard 2.0 incl. .Net Core + .Net Framework
