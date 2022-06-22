@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace CompuMaster.Ocs.Types
 {
@@ -11,14 +12,105 @@ namespace CompuMaster.Ocs.Types
     /// </summary>
     public class Share
     {
-        /// <summary>
-        /// The shares Id assigned by ownCloud
-        /// </summary>
-        public int ShareId { get; set; }
-        /// <summary>
-        /// The path to the target file/folder
-        /// </summary>
-        public string TargetPath { get; set; }
+		internal Share(Core.OcsShareType shareType, XElement data)
+		{
+			this.Type = shareType;
+			this.AdvancedProperties = new AdvancedShareProperties();
+
+			XElement node;
+			#region General Basic Properties
+			node = data.Element(XName.Get("id"));
+			if (node != null)
+				this.ShareId = Convert.ToInt32(node.Value);
+
+			node = data.Element(XName.Get("file_target"));
+			if (node != null)
+				this.TargetPath = node.Value;
+
+			node = data.Element(XName.Get("permissions"));
+			if (node != null)
+				this.Permissions = (CompuMaster.Ocs.Core.OcsPermission)Convert.ToInt32(node.Value);
+
+			node = data.Element(XName.Get("expiration"));
+			if (node != null && !String.IsNullOrEmpty(node.Value))
+				this.Expiration = DateTime.Parse(node.Value);
+			#endregion
+
+			#region Advanced Properties
+			node = data.Element(XName.Get("item_type"));
+			if (node != null)
+				this.AdvancedProperties.ItemType = node.Value;
+
+			node = data.Element(XName.Get("item_source"));
+			if (node != null)
+				this.AdvancedProperties.ItemSource = node.Value;
+
+			node = data.Element(XName.Get("parent"));
+			if (node != null)
+				this.AdvancedProperties.Parent = node.Value;
+
+			node = data.Element(XName.Get("file_source"));
+			if (node != null)
+				this.AdvancedProperties.FileSource = node.Value;
+
+			node = data.Element(XName.Get("stime"));
+			if (node != null)
+				this.AdvancedProperties.STime = node.Value;
+
+			node = data.Element(XName.Get("expiration"));
+			if (node != null)
+				this.AdvancedProperties.Expiration = node.Value;
+
+			node = data.Element(XName.Get("mail_send"));
+			if (node != null)
+				this.AdvancedProperties.MailSend = node.Value;
+
+			node = data.Element(XName.Get("uid_owner"));
+			if (node != null)
+				this.AdvancedProperties.Owner = node.Value;
+
+			node = data.Element(XName.Get("storage_id"));
+			if (node != null)
+				this.AdvancedProperties.StorageId = node.Value;
+
+			node = data.Element(XName.Get("storage"));
+			if (node != null)
+				this.AdvancedProperties.Storage = node.Value;
+
+			node = data.Element(XName.Get("file_parent"));
+			if (node != null)
+				this.AdvancedProperties.FileParent = node.Value;
+
+			node = data.Element(XName.Get("uid_file_owner"));
+			if (node != null)
+				this.AdvancedProperties.FileOwner = node.Value;
+
+			node = data.Element(XName.Get("displayname_file_owner"));
+			if (node != null)
+				this.AdvancedProperties.FileOwnerDisplayname = node.Value;
+
+			node = data.Element(XName.Get("share_with_displayname"));
+			if (node != null)
+				this.AdvancedProperties.SharedWithDisplayname = node.Value;
+
+			node = data.Element(XName.Get("displayname_owner"));
+			if (node != null)
+				this.AdvancedProperties.DisplaynameOwner = node.Value;
+					#endregion
+		}
+
+			/// <summary>
+			/// The shares Id assigned by ownCloud
+			/// </summary>
+		public int ShareId { get; set; }
+		/// <summary>
+		/// The shares type Id assigned by ownCloud
+		/// </summary>
+		public Core.OcsShareType Type { get; set; }
+		/// <summary>
+		/// The path to the target file/folder
+		/// </summary>
+		public string TargetPath { get; set; }
         /// <summary>
         /// The permissions granted on the share
         /// </summary>
@@ -28,30 +120,16 @@ namespace CompuMaster.Ocs.Types
 		/// </summary>
 		/// <value>The advanced properties.</value>
 		public AdvancedShareProperties AdvancedProperties { get; set; }
+		/// <summary>
+		/// Gets or sets the expiration date.
+		/// </summary>
+		/// <value>The expiration.</value>
+		public DateTime? Expiration { get; set; }
 
-  //      public override bool Equals(object obj)
-  //      {
-		//	if (obj == null || obj.GetType() != typeof(Share))
-		//		return false;
-		//	else
-		//		return (((Share)obj).ShareId == this.ShareId);
-  //      }
-
-		//public static bool operator ==(Share obj1, Share obj2)
-		//{
-		//	if (obj2 == null || obj2.GetType() != typeof(Share))
-		//		return false;
-		//	else
-		//		return (((Share)obj2).ShareId == obj1.ShareId);
-		//}
-		//public static bool operator !=(Share obj1, Share obj2)
-		//{
-		//	if (obj2 == null || obj2.GetType() != typeof(Share))
-		//		return true;
-		//	else
-		//		return (((Share)obj2).ShareId != obj1.ShareId);
-		//}
-
+		/// <summary>
+		/// Share summary
+		/// </summary>
+		/// <returns></returns>
         public override string ToString()
         {
 			return "Share ID " + this.ShareId.ToString() + " (Permission: " + this.Permissions.ToString() + ") " + this.TargetPath;
@@ -118,10 +196,20 @@ namespace CompuMaster.Ocs.Types
 		/// <value>The file parent.</value>
 		public string FileParent { get; set; }
 		/// <summary>
+		/// Gets or sets the file owner.
+		/// </summary>
+		/// <value>The file parent.</value>
+		public string FileOwner { get; set; }
+		/// <summary>
+		/// Gets or sets the file owner displayname.
+		/// </summary>
+		/// <value>The file parent.</value>
+		public string FileOwnerDisplayname { get; set; }
+		/// <summary>
 		/// Gets or sets the share with displayname.
 		/// </summary>
 		/// <value>The share with displayname.</value>
-		public string ShareWithDisplayname { get; set; }
+		public string SharedWithDisplayname { get; set; }
 		/// <summary>
 		/// Gets or sets the displayname owner.
 		/// </summary>

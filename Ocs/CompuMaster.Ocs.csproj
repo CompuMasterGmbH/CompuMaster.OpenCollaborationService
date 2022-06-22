@@ -24,6 +24,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Exceptions\DavResponseException.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="RestSharp" Version="107.3.0" />
     <PackageReference Include="WebDav.Client" Version="2.8.0" />
   </ItemGroup>

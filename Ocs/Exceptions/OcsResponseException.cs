@@ -28,7 +28,7 @@ namespace CompuMaster.Ocs.Exceptions
 		public HttpStatusCode HttpStatusCode { get; }
 
 		/// <summary>
-		/// Initializes a new instance of the <see cref="CompuMaster.Ocs.Exceptions.ResponseError"/> class.
+		/// Initializes a new instance of the <see cref="CompuMaster.Ocs.Exceptions.ResponseException"/> class.
 		/// </summary>
 		/// <param name="message">The message that describes the error.</param>
 		/// <param name="statusCode">OCS status code associated to the error.</param>
@@ -52,9 +52,9 @@ namespace CompuMaster.Ocs.Exceptions
             {
 				//OCS error
 				if (!String.IsNullOrEmpty(message))
-					return "OCS-Error: OCS-StatusCode: " + ocsStatusCode.ToString() + " (" + ocsStatusText + ") - HTTP-StatusCode: " + ((int)httpStatusCode).ToString() + " - Message: " + message;
+					return "OCS-StatusCode: " + ocsStatusCode.ToString() + " (" + ocsStatusText + "), HTTP-StatusCode: " + ((int)httpStatusCode).ToString() + ", Message: " + message;
 				else
-					return "OCS-Error: OCS-StatusCode: " + ocsStatusCode.ToString() + " (" + ocsStatusText + ") - HTTP-StatusCode: " + ((int)httpStatusCode).ToString();
+					return "OCS-StatusCode: " + ocsStatusCode.ToString() + " (" + ocsStatusText + "), HTTP-StatusCode: " + ((int)httpStatusCode).ToString();
 			}
 			else if (httpStatusCode != 0)
 				//HTTP or network error

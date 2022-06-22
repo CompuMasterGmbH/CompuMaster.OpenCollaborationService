@@ -61,6 +61,14 @@ Namespace CompuMaster.Ocs.Test
             If User.Enabled.HasValue Then Assert.IsTrue(User.Enabled)
         End Sub
 
+        <Test> Public Sub Exists()
+            Dim c As OcsClient = Me.CreateAuthorizedClientInstance()
+            Assert.True(c.Exists(""))
+            Assert.True(c.Exists("/"))
+            Assert.False(c.Exists("never-exists"))
+            Assert.False(c.Exists("/never-exists"))
+        End Sub
+
         <Test> Public Sub GetUsers()
             Dim c As OcsClient = Me.CreateAuthorizedClientInstance()
             Try
