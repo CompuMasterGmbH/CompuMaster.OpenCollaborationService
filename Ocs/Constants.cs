@@ -42,6 +42,7 @@ namespace CompuMaster.Ocs.Core
     /// Available share types.
     /// See <c>https://doc.owncloud.org/server/8.2/developer_manual/core/ocs-share-api.html</c> for reference.
     /// </summary>
+    /// <remarks>0 = user; 1 = group; 3 = public link; 4 = email; 6 = federated cloud share; 7 = circle; 10 = Talk conversation</remarks>
     public enum OcsShareType {
         /// <summary>
         /// User Share.
@@ -52,13 +53,25 @@ namespace CompuMaster.Ocs.Core
         /// </summary>
         Group = 1,
         /// <summary>
-        /// Link Share.
+        /// Public Link Share.
         /// </summary>
         Link = 3,
         /// <summary>
-        /// Remote Share.
+        /// E-Mail Share
+        /// </summary>
+        EMail = 4,
+        /// <summary>
+        /// Federated Cloud / Remote Share.
         /// </summary>
         Remote = 6,
+        /// <summary>
+        /// Circle
+        /// </summary>
+        Circle = 7,
+        /// <summary>
+        /// Talk conversation
+        /// </summary>
+        TalkConversation = 10,
         /// <summary>
         /// Not defined indicator.
         /// </summary>

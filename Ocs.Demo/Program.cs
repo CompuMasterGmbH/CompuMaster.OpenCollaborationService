@@ -19,7 +19,8 @@ namespace CompuMaster.Ocs.DemoApp
 
             Stream fs = File.OpenRead(path + "\\5K_Wallpaper_9.png");
             c.Upload("/Zafer.png", fs);
-            var ps = c.ShareWithLink("/Zafer.png", Core.OcsPermission.Read);
+            var ps = c.CreateShareWithLink("/Zafer.png", Core.OcsPermission.Read, Core.OcsBoolParam.False, "Test Zafer", (DateTime?)null, (string)null);
+            System.Console.WriteLine("Shared /Zafer.png with link: " + ps.Url);
         }
 
         static void ShowLoggedInEnvironment()

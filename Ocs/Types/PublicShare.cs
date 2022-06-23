@@ -22,6 +22,10 @@ namespace CompuMaster.Ocs.Types
             node = data.Element(XName.Get("name"));
             if (node != null)
                 this.Name = node.Value;
+
+            node = data.Element(XName.Get("label"));
+            if (node != null && !String.IsNullOrEmpty(node.Value))
+                this.Name = node.Value;
         }
 
         /// <summary>

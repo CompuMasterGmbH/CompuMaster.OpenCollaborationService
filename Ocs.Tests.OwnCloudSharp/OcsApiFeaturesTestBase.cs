@@ -5,6 +5,7 @@ using System.IO;
 
 using CompuMaster.Ocs;
 using CompuMaster.Ocs.Core;
+using CompuMaster.Ocs.Types;
 
 namespace CompuMaster.Ocs.OwnCloudSharpTests
 {
@@ -198,7 +199,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				#region OCS User Test cleanup
 				if (c.UserExists("octestusr1"))
 				{
-					var c1 = new OcsClient(TestSettings.ownCloudInstanceUrl, "octestusr1", "octestpwd");
+					var c1 = new OcsClient(TestSettings.ownCloudInstanceUrl, "octestusr1", "octestpwd-C0mplex");
 					var shares = c1.GetShares("");
 					foreach (var share in shares)
 						c1.DeleteShare(share.ShareId);
@@ -206,7 +207,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				}
 				if (c.UserExists("octestusr"))
 				{
-					var c2 = new OcsClient(TestSettings.ownCloudInstanceUrl, "octestusr", "octestpwd");
+					var c2 = new OcsClient(TestSettings.ownCloudInstanceUrl, "octestusr", "octestpwd-C0mplex");
 					var shares = c2.GetShares("");
 					foreach (var share in shares)
 						c2.DeleteShare(share.ShareId);
@@ -223,8 +224,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				#endregion
 
 				#region OCS App Attribute Test Cleanup
-				if (c.GetAttribute("files", "test").Count > 0)
-					c.DeleteAttribute("files", "test");
+				if (this.GetType() != typeof(OcsApiNextCloudTest))
+				{
+					if (c.GetAttribute("calendar", "test").Count > 0)
+						c.DeleteAttribute("calendar", "test");
+				}
 				#endregion
 
 				#region General CleanUp
@@ -275,35 +279,35 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test()]
 		public void Sharees()
 		{
-			List<string> result;
+			List<Sharee> result;
 
 			result = c.Sharees("test", false, "file");
 			Assert.NotNull(result);
 			Assert.That(result.Count, Is.GreaterThan(0));
 			System.Console.WriteLine("## file - test");
-			foreach (string value in result)
-				System.Console.WriteLine("- " + value);
+			foreach (Sharee value in result)
+				System.Console.WriteLine("- " + value.ToString());
 
 			result = c.Sharees("", false, "file");
 			Assert.NotNull(result);
 			Assert.That(result.Count, Is.GreaterThan(0));
 			System.Console.WriteLine("## file - *");
-			foreach (string value in result)
-				System.Console.WriteLine("- " + value);
+			foreach (Sharee value in result)
+				System.Console.WriteLine("- " + value.ToString());
 
 			result = c.Sharees("test", false, "folder");
 			Assert.NotNull(result);
 			Assert.That(result.Count, Is.GreaterThan(0));
 			System.Console.WriteLine("## folder - test");
-			foreach (string value in result)
-				System.Console.WriteLine("- " + value);
+			foreach (Sharee value in result)
+				System.Console.WriteLine("- " + value.ToString());
 
 			result = c.Sharees("", false, "folder");
 			Assert.NotNull(result);
 			Assert.That(result.Count, Is.GreaterThan(0));
 			System.Console.WriteLine("## folder - *");
-			foreach (string value in result)
-				System.Console.WriteLine("- " + value);
+			foreach (Sharee value in result)
+				System.Console.WriteLine("- " + value.ToString());
 		}
 
 		[Test()]
@@ -334,9 +338,9 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			{
 				//throws CompuMaster.Ocs.Exceptions.OCSResponseError : 404 Das öffentliche Hochladen ist nur für öffentlich freigegebene Ordner erlaubt
 				//since the shared item is a file, not a folder
-				c.ShareWithLink("/share-link-test.txt", OcsPermission.All, OcsBoolParam.True, "test for allow-upload", ExpectedExpiry, "test");
+				c.CreateShareWithLink("/share-link-test.txt", OcsPermission.All, OcsBoolParam.True, "test for allow-upload", ExpectedExpiry, "test-with-C0mplex-password");
 			});
-			var share = c.ShareWithLink("/share-link-test.txt", OcsPermission.All, OcsBoolParam.False, "test for no-public-upload", DateTime.Now.AddDays(1), "test");
+			var share = c.CreateShareWithLink("/share-link-test.txt", OcsPermission.All, OcsBoolParam.False, "test for no-public-upload", DateTime.Now.AddDays(1), "test-with-C0mplex-password");
 
 			Assert.NotNull(share);
 			Assert.That(share.Name, Is.EqualTo("test for no-public-upload"));
@@ -346,15 +350,25 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			Assert.That(share.Token, Is.Not.Null);
 			Assert.That(share.Token, Is.Not.Empty);
 			Assert.That(share.Type, Is.EqualTo(Ocs.Core.OcsShareType.Link));
-			Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
-			Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read)); //typically with OwnCloud, following permissions are not set after share creation for a file: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Delete));
+			if (this.GetType() == typeof(OcsApiNextCloudTest))
+				//typically with NextCloud, following permissions are not set after share creation for a file: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Delete));
+				Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read | Ocs.Core.OcsPermission.Share)); 
+			else if (this.GetType() == typeof(OcsApiOwnCloudTest))
+				//typically with OwnCloud, following permissions are not set after share creation for a file: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Delete | Ocs.Core.OcsPermission.Share));
+				Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read)); 
+			else
+				throw new NotImplementedException();
 
-			//test sharing of folder
-			if (c.Exists("/share-folder-test"))
+			if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
+				Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
+			
+
+				//test sharing of folder
+				if (c.Exists("/share-folder-test"))
 				c.Delete("/share-folder-test");
 			c.CreateDirectory("/share-folder-test");
 
-			share = c.ShareWithLink("/share-folder-test", OcsPermission.All, OcsBoolParam.False, "test for share-folder to link (no public-upload)", ExpectedExpiry, "test");
+			share = c.CreateShareWithLink("/share-folder-test", OcsPermission.All, OcsBoolParam.False, "test for share-folder to link (no public-upload)", ExpectedExpiry, "test-with-C0mplex-password");
 			Assert.That(share.Name, Is.EqualTo("test for share-folder to link (no public-upload)"));
 			Assert.That(share.ShareId, Is.Not.EqualTo(0));
 			Assert.That(share.Url, Is.Not.Null);
@@ -362,10 +376,19 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			Assert.That(share.Token, Is.Not.Null);
 			Assert.That(share.Token, Is.Not.Empty);
 			Assert.That(share.Type, Is.EqualTo(Ocs.Core.OcsShareType.Link));
-			Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
-			Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read)); //typically with OwnCloud, following permissions are not set after share creation for a file: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Delete));
+			if (this.GetType() == typeof(OcsApiNextCloudTest))
+				//typically with NextCloud, following permissions are not set after share creation for a file: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Delete));
+				Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read | Ocs.Core.OcsPermission.Share));
+			else if (this.GetType() == typeof(OcsApiOwnCloudTest))
+				//typically with OwnCloud, following permissions are not set after share creation for a file: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Delete | Ocs.Core.OcsPermission.Share));
+				Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read));
+			else
+				throw new NotImplementedException();
 
-			share = c.ShareWithLink("/share-folder-test", OcsPermission.All, OcsBoolParam.True, "test for share-folder to link (with public-upload)", ExpectedExpiry, "public-test");
+			if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
+				Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
+
+			share = c.CreateShareWithLink("/share-folder-test", OcsPermission.All, OcsBoolParam.True, "test for share-folder to link (with public-upload)", ExpectedExpiry, "public-test-with-C0mplex-password");
 			Assert.That(share.Name, Is.EqualTo("test for share-folder to link (with public-upload)"));
 			Assert.That(share.ShareId, Is.Not.EqualTo(0));
 			Assert.That(share.Url, Is.Not.Null);
@@ -373,8 +396,16 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			Assert.That(share.Token, Is.Not.Null);
 			Assert.That(share.Token, Is.Not.Empty);
 			Assert.That(share.Type, Is.EqualTo(Ocs.Core.OcsShareType.Link));
-			Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
-			Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read | Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Delete));
+			if (this.GetType() == typeof(OcsApiNextCloudTest))
+				Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read | Ocs.Core.OcsPermission.Share | Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Delete));
+			else if (this.GetType() == typeof(OcsApiOwnCloudTest))
+				Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read | Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Delete));
+			else
+				throw new NotImplementedException();
+
+			if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
+				Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
+
 
 		}
 
@@ -392,18 +423,19 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 
 			c.Upload("/share-user-test.txt", payload, "text/plain");
 
-			var share = c.ShareWithUser("/share-user-test.txt", "sharetest", OcsPermission.All, ExpectedExpiry);
+			var share = c.CreateShareWithUser("/share-user-test.txt", "sharetest", OcsPermission.All, ExpectedExpiry);
 			Assert.NotNull(share);
 			Assert.That(share.SharedWith, Is.EqualTo("sharetest"));
 			Assert.That(share.ShareId, Is.Not.EqualTo(0));
 			Assert.That(share.Type, Is.EqualTo(Ocs.Core.OcsShareType.User));
-			Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
+			if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
+				Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
 			Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read | Ocs.Core.OcsPermission.Share | Ocs.Core.OcsPermission.Update)); //typically missing at OwnCloud after share-creation: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Delete
 
 
 			Assert.Catch<Ocs.Exceptions.OcsResponseException>(() => {
 				//fails with: CompuMaster.Ocs.Exceptions.OcsResponseException : OCS-StatusCode: 403 (failure), HTTP-StatusCode: 200, Message: Die Freigabe von share-user-test.txt ist fehlgeschlagen, da external-test-user@remote nicht gefunden wurde. Möglicherweise ist der Server nicht erreichbar.
-				c.ShareWithUser("/share-user-test.txt", "external-test-user@remote-not-existing", OcsPermission.All, ExpectedExpiry, OcsBoolParam.True); 
+				c.CreateShareWithRemoteUser("/share-user-test.txt", "external-test-user@remote-not-existing", OcsPermission.All, ExpectedExpiry); 
 			});
 
 			/* DEACTIVATED CODE SINCE TEST ENVIRONMENT NEEDS TO BE PREPARED WITH EXTERNAL REMOTE USERS, FIRST
@@ -419,7 +451,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 
 			Assert.Catch<Ocs.Exceptions.OcsResponseException>(() => {
 				//fails with: CompuMaster.Ocs.Exceptions.OcsResponseException : OCS-StatusCode: 403 (failure), HTTP-StatusCode: 200, Message: Die Freigabe von share-user-test.txt ist fehlgeschlagen, da external-test-user@remote nicht gefunden wurde. Möglicherweise ist der Server nicht erreichbar.
-				c.ShareWithRemoteUser("/share-user-test.txt", "external-test-user@remote-not-existing", OcsPermission.All, ExpectedExpiry);
+				c.CreateShareWithRemoteUser("/share-user-test.txt", "external-test-user@remote-not-existing", OcsPermission.All, ExpectedExpiry);
 			});
 
 			/* DEACTIVATED CODE SINCE TEST ENVIRONMENT NEEDS TO BE PREPARED WITH EXTERNAL REMOTE USERS, FIRST
@@ -447,13 +479,14 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				c.Delete("/share-group-test.txt");
 
 			c.Upload("/share-group-test.txt", payload, "text/plain");
-			var share = c.ShareWithGroup("/share-group-test.txt", "testgroup", OcsPermission.All, ExpectedExpiry);
+			var share = c.CreateShareWithGroup("/share-group-test.txt", "testgroup", OcsPermission.All, ExpectedExpiry);
 
 			Assert.NotNull(share);
 			Assert.That(share.SharedWith, Is.EqualTo("testgroup"));
 			Assert.That(share.ShareId, Is.Not.EqualTo(0));
 			Assert.That(share.Type, Is.EqualTo(Ocs.Core.OcsShareType.Group));
-			Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
+			if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
+				Assert.That(share.Expiration.GetValueOrDefault().Date, Is.EqualTo(ExpectedExpiry.Date));
 			Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read | Ocs.Core.OcsPermission.Share | Ocs.Core.OcsPermission.Update)); //typically missing at OwnCloud after share-creation: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Delete
 		}
 
@@ -467,7 +500,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			MemoryStream payload = new MemoryStream(payloadData);
 
 			c.Upload("/share-update-test.txt", payload, "text/plain");
-			var share = c.ShareWithLink("/share-update-test.txt", OcsPermission.All, OcsBoolParam.False, "test UpdateShare", ExpectedExpiry, "test");
+			var share = c.CreateShareWithLink("/share-update-test.txt", OcsPermission.All, OcsBoolParam.False, "test UpdateShare", ExpectedExpiry, "test-with-C0mplex-password");
 			System.Console.WriteLine(share.ToString() + " >>> " + share.Url);
 
 			c.UpdateShare(share.ShareId, OcsPermission.None, "test123test");
@@ -482,7 +515,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			MemoryStream payload = new MemoryStream(payloadData);
 
 			c.Upload("/share-delete-test.txt", payload, "text/plain");
-			var share = c.ShareWithLink("/share-delete-test.txt", OcsPermission.All, OcsBoolParam.False, "test DeleteShare", DateTime.Now.AddDays(1), "test");
+			var share = c.CreateShareWithLink("/share-delete-test.txt", OcsPermission.All, OcsBoolParam.False, "test DeleteShare", DateTime.Now.AddDays(1), "test-with-C0mplex-password");
 
 			c.DeleteShare(share.ShareId);
 			Assert.True(true);
@@ -498,7 +531,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			MemoryStream payload = new MemoryStream(payloadData);
 
 			c.Upload("/share-shared-test.txt", payload, "text/plain");
-			c.ShareWithLink("/share-shared-test.txt", OcsPermission.All, OcsBoolParam.False, "test IsShared", (DateTime?)null, "test");
+			c.CreateShareWithLink("/share-shared-test.txt", OcsPermission.All, OcsBoolParam.False, "test IsShared", (DateTime?)null, "test-with-C0mplex-password");
 			Assert.True(c.IsShared("/share-shared-test.txt"));
 		}
 
@@ -511,12 +544,12 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			//test sharing of file
 			MemoryStream payload = new MemoryStream(payloadData);
 			c.Upload("/share-get-test.txt", payload, "text/plain");
-			c.ShareWithLink("/share-get-test.txt", OcsPermission.All, OcsBoolParam.False, "test GetSharesForPath with link", DateTime.Now.AddDays(1), "test");
-			c.ShareWithUser("/share-get-test.txt", "sharetest", OcsPermission.All, DateTime.Now.AddDays(1), OcsBoolParam.False);
-			c.ShareWithGroup("/share-get-test.txt", "testgroup", OcsPermission.All, DateTime.Now.AddDays(1));
+			c.CreateShareWithLink("/share-get-test.txt", OcsPermission.All, OcsBoolParam.False, "test GetSharesForPath with link", DateTime.Now.AddDays(1), "test-with-C0mplex-password");
+			c.CreateShareWithUser("/share-get-test.txt", "sharetest", OcsPermission.All, DateTime.Now.AddDays(1));
+			c.CreateShareWithGroup("/share-get-test.txt", "testgroup", OcsPermission.All, DateTime.Now.AddDays(1));
 			
 			Assert.Catch<Ocs.Exceptions.OcsResponseException>(() => { 
-				c.ShareWithLink("/share-get-test.txt", OcsPermission.All, OcsBoolParam.True, "test GetSharesForPath with link with public-upload (should fail!)", DateTime.Now.AddDays(1), "public-test"); 
+				c.CreateShareWithLink("/share-get-test.txt", OcsPermission.All, OcsBoolParam.True, "test GetSharesForPath with link with public-upload (should fail!)", DateTime.Now.AddDays(1), "public-test-with-C0mplex-password"); 
 			});
 
 			var content = c.GetShares("/share-get-test.txt");
@@ -539,11 +572,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			if (c.Exists("/share-folder-test"))
 				c.Delete("/share-folder-test");
 			c.CreateDirectory("/share-folder-test");
-			c.ShareWithLink("/share-folder-test", OcsPermission.All, OcsBoolParam.False, "test for share-folder to link (no public-upload) ", DateTime.Now.AddDays(1), "test");
-			c.ShareWithLink("/share-folder-test", OcsPermission.All, OcsBoolParam.True, "test for share-folder to link (with public-upload)", DateTime.Now.AddDays(1), "public-test");
-			c.ShareWithUser("/share-folder-test", "sharetest", OcsPermission.All, DateTime.Now.AddDays(1));
+			c.CreateShareWithLink("/share-folder-test", OcsPermission.All, OcsBoolParam.False, "test for share-folder to link (no public-upload) ", DateTime.Now.AddDays(1), "test-with-C0mplex-password");
+			c.CreateShareWithLink("/share-folder-test", OcsPermission.All, OcsBoolParam.True, "test for share-folder to link (with public-upload)", DateTime.Now.AddDays(1), "public-test-with-C0mplex-password");
+			c.CreateShareWithUser("/share-folder-test", "sharetest", OcsPermission.All, DateTime.Now.AddDays(1));
 			//c.ShareWithUser("/share-folder-test", "remote@user", OcsPermission.All, OcsBoolParam.True); //would fail since test environment lacks external users feature
-			c.ShareWithGroup("/share-folder-test", "testgroup", OcsPermission.All, DateTime.Now.AddDays(1));
+			c.CreateShareWithGroup("/share-folder-test", "testgroup", OcsPermission.All, DateTime.Now.AddDays(1));
 
 			content = c.GetShares("/share-folder-test");
 			Assert.That(content.Count, Is.EqualTo(4));
@@ -579,7 +612,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			}
 
 			//test with a standard user
-			GetSharesForNewTempUsers("octestusr1", "octestpwd", false);
+			GetSharesForNewTempUsers("octestusr1", "octestpwd-C0mplex", false);
 
 			//test with a sub-admin user
 			//GetSharesForNewTempUsers("octestusr-sub", "test-octestusr-subadmin", false);
@@ -619,7 +652,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				//Existing user must be deleted before test core can start to re-create it again
 				c.DeleteUser("octestusr1");
 
-			c.CreateUser("octestusr1", "octestpwd");
+			c.CreateUser("octestusr1", "octestpwd-C0mplex");
 			Assert.True(c.UserExists("octestusr1"));
 		}
 
@@ -672,7 +705,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test()]
 		public void SetUserAttribute()
 		{
-			Assert.True(c.SetUserAttribute("sharetest", OCSUserAttributeKey.EMail, "demo@example.com"));
+			c.SetUserAttribute("sharetest", OCSUserAttributeKey.EMail, "demo@example.com");
+			Assert.That(c.GetUserAttributes("sharetest").EMail, Is.EqualTo("demo@example.com"));
 		}
 
 		/// <summary>
@@ -682,7 +716,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		public void AddUserToGroup()
 		{
 			if (!c.UserExists("octestusr"))
-				c.CreateUser("octestusr", "octestpwd");
+				c.CreateUser("octestusr", "octestpwd-C0mplex");
 
 			c.AddUserToGroup("octestusr", "testgroup");
 			Assert.True(c.IsUserInGroup("octestusr", "testgroup"));
@@ -707,7 +741,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			if (!c.UserExists("octestusr"))
 			{
-				c.CreateUser("octestusr", "octestpwd");
+				c.CreateUser("octestusr", "octestpwd-C0mplex");
 			}
 			c.AddUserToGroup("octestusr", "testgroup");
 
@@ -732,7 +766,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			if (!c.UserExists("octestusr"))
 			{
-				c.CreateUser("octestusr", "octestpwd");
+				c.CreateUser("octestusr", "octestpwd-C0mplex");
 				c.AddUserToGroup("octestusr", "testgroup");
 			}
 			if (!c.IsUserInGroup("octestusr", "testgroup"))
@@ -750,7 +784,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			if (!c.UserExists("octestusr"))
 			{
-				c.CreateUser("octestusr", "octestpwd");
+				c.CreateUser("octestusr", "octestpwd-C0mplex");
 				c.AddUserToGroup("octestusr", "testgroup");
 			}
 
@@ -766,7 +800,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			if (!c.UserExists("octestusr"))
 			{
-				c.CreateUser("octestusr", "octestpwd");
+				c.CreateUser("octestusr", "octestpwd-C0mplex");
 				c.AddUserToGroup("octestusr", "testgroup");
 			}
 			if (!c.IsUserInSubAdminGroup("octestusr", "testgroup"))
@@ -785,7 +819,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			if (!c.UserExists("octestusr"))
 			{
-				c.CreateUser("octestusr", "octestpwd");
+				c.CreateUser("octestusr", "octestpwd-C0mplex");
 				c.AddUserToGroup("octestusr", "testgroup");
 			}
 			if (!c.IsUserInSubAdminGroup("octestusr", "testgroup"))
@@ -801,7 +835,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			if (!c.UserExists("octestusr"))
 			{
-				c.CreateUser("octestusr", "octestpwd");
+				c.CreateUser("octestusr", "octestpwd-C0mplex");
 				c.AddUserToGroup("octestusr", "testgroup");
 			}
 			if (!c.IsUserInSubAdminGroup("octestusr", "testgroup"))
@@ -886,30 +920,81 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// <summary>
 		/// Test GetAttribute.
 		/// </summary>
+		[Test()]
 		public void GetAttribute()
 		{
-			var result = c.GetAttribute("files");
+			if (this.GetType() == typeof(OcsApiNextCloudTest))
+				Assert.Ignore("OCS API missing at NextCloud server?!");
+
+			var result = c.GetAttribute("calendar");
 			Assert.NotNull(result);
 		}
 
 		/// <summary>
 		/// Test SetAttribute.
 		/// </summary>
+		[Test()]
 		public void SetAttribute()
 		{
-			c.SetAttribute("files", "test", "true");
-			Assert.True(true);
+			if (this.GetType() == typeof(OcsApiNextCloudTest))
+				Assert.Ignore("OCS API missing at NextCloud server?!");
+
+			c.SetAttribute("calendar", "test", "true");
+
+			List<AppAttribute> result;
+
+			//test getting full key-value-list
+			result = c.GetAttribute("calendar");
+			bool TestAttributeFound = false;
+			foreach(AppAttribute attr in result)
+            {
+				if (attr.Key == "test")
+                {
+					TestAttributeFound = true;
+					Assert.That(attr.value, Is.EqualTo("true"));
+				}
+            }
+			Assert.That(TestAttributeFound, Is.EqualTo(true));
+
+			//test getting key-only-entries
+			try
+			{
+				result = c.GetAttribute("calendar", "test");
+			}
+			catch (Ocs.Exceptions.OcsResponseException)
+			{
+				if (this.GetType() == typeof(OcsApiNextCloudTest))
+					Assert.Ignore("OCS API misfunction at NextCloud server?!");
+				else
+					throw;
+			}
+			Assert.That(result.Count, Is.EqualTo(1));
+			Assert.That(result[0].value, Is.EqualTo("true"));
 		}
 
 		/// <summary>
 		/// Test DeleteAttribute.
 		/// </summary>
+		[Test()]
 		public void DeleteAttribute()
 		{
-			if (c.GetAttribute("files", "test").Count == 0)
-				c.SetAttribute("files", "test", "true");
+			if (this.GetType() == typeof(OcsApiNextCloudTest))
+				Assert.Ignore("OCS API missing at NextCloud server?!");
 
-			c.DeleteAttribute("files", "test");
+			if (c.GetAttribute("calendar", "test").Count == 0)
+				c.SetAttribute("calendar", "test", "true");
+
+			try
+            {
+				c.DeleteAttribute("calendar", "test");
+			}
+			catch (Ocs.Exceptions.OcsResponseException)
+            {
+				if (this.GetType() == typeof(OcsApiOwnCloudTest))
+					Assert.Ignore("OCS API misfunction at OwnCloud server?!");
+				else
+					throw;
+			}
 			Assert.True(true);
 		}
 		#endregion

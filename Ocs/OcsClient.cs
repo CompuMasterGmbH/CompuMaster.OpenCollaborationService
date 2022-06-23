@@ -339,6 +339,7 @@ namespace CompuMaster.Ocs
         public object ListOpenRemoteShare()
         {
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "remote_shares"), Method.Get);
+            request.AddHeader("Accept", "text/xml, application/xml");
             request.AddHeader("OCS-APIREQUEST", "true");
             var response = rest.ExecuteAsync(request).Result;
 
@@ -439,17 +440,79 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Shares a remote file with link
+        /// Share a file/folder with a user/group or as public link
         /// </summary>
-        /// <returns>instance of PublicShare with the share info</returns>
-        /// <param name="path">path to the remote file to share</param>
-        /// <param name="perms">(optional) permission of the shared object</param>
-        /// <param name="password">(optional) sets a password</param>
-        /// <param name="public_upload">(optional) allows users to upload files or folders (only allowed for targetting folders, forbidden for files)</param>
-        [Obsolete("Use overloaded method instead"), System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-        public PublicShare ShareWithLink(string path, OcsPermission perms, string password = null, OcsBoolParam public_upload = OcsBoolParam.None)
+        /// <param name="path">path to the file/folder which should be shared</param>
+        /// <param name="shareType">0 = user; 1 = group; 3 = public link; 4 = email; 6 = federated cloud share; 7 = circle; 10 = Talk conversation</param>
+        /// <param name="shareWith">user / group id / email address / circleID / conversation name with which the file should be shared</param>
+        /// <param name="perms">1 = read; 2 = update; 4 = create; 8 = delete; 16 = share; 31 = all (default: 31, for public shares: 1)</param>
+        /// <param name="public_upload">allow public upload to a public shared folder</param>
+        /// <param name="password">password to protect public link Share with</param>
+        /// <param name="expireDate">set a expire date for public link shares. This argument expects a well formatted date string, e.g. ‘YYYY-MM-DD’</param>
+        /// <param name="name">a display name for a share</param>
+        /// <param name="note">Adds a note for the share recipient</param>
+        /// <returns>Share data containing the share ID (int) of the newly created share</returns>
+        public Share CreateShare(string path, OcsShareType shareType, string shareWith, OcsPermission perms, OcsBoolParam public_upload, string password, DateTime? expireDate, string name, string note)
         {
-            return ShareWithLink(path, perms, public_upload, "", (DateTime?)null, password);
+            if (String.IsNullOrEmpty(path)) throw new ArgumentOutOfRangeException(nameof(path));
+            if (shareType != OcsShareType.Link && string.IsNullOrEmpty(shareWith)) throw new ArgumentNullException(nameof(shareWith));
+            if ((Convert.ToInt32(perms) <= 0) || (Convert.ToInt32(perms) > Convert.ToInt32(OcsPermission.All))) throw new ArgumentOutOfRangeException(nameof(perms));
+
+            var request = new RestRequest(GetOcsPath(ocsServiceShare, "shares"), Method.Post);
+            request.AddHeader("Accept", "text/xml, application/xml");
+            request.AddHeader("OCS-APIREQUEST", "true");
+
+            request.AddParameter("shareType", Convert.ToInt32(shareType));
+            request.AddParameter("path", path);
+            if (!String.IsNullOrEmpty(shareWith)) 
+                request.AddParameter("shareWith", shareWith);
+            if (!String.IsNullOrEmpty(name))
+            {
+                request.AddParameter("name", name.ToString());
+                request.AddParameter("label", name.ToString());
+            }
+            request.AddParameter("permissions", Convert.ToInt32(perms).ToString());
+            if (password != null)
+                request.AddParameter("password", password);
+            if (public_upload == OcsBoolParam.True)
+                request.AddParameter("publicUpload", "true");
+            else if (public_upload == OcsBoolParam.False)
+                request.AddParameter("publicUpload", "false");
+            if (expireDate.HasValue) request.AddParameter("expireDate", expireDate.Value.ToString("yyyy-MM-dd HH:mm:ss"));
+            
+            var response = rest.ExecuteAsync(request).Result;
+
+            CheckOcsStatus(response);
+
+            XElement data = GetOcsResponseData(response);
+            var node = data.Element(XName.Get("share_type"));
+            if (node == null) throw new Ocs.Exceptions.OcsResponseException("Result data not in expected format", 0, "", response.StatusCode);
+            Core.OcsShareType foundShareType = (Core.OcsShareType)Convert.ToInt32(node.Value);
+
+            Share share;
+            switch (foundShareType)
+            {
+                case OcsShareType.Group:
+                    share = new GroupShare(foundShareType, data);
+                    break;
+                case OcsShareType.User:
+                    share = new UserShare(foundShareType, data);
+                    break;
+                case OcsShareType.Remote:
+                    share = new RemoteShare(foundShareType, data);
+                    break;
+                case OcsShareType.Link:
+                    share = new PublicShare(foundShareType, data);
+                    break;
+                case OcsShareType.EMail:
+                case OcsShareType.Circle:
+                case OcsShareType.TalkConversation:
+                    share = new Share(foundShareType, data); //ToDo: add support for more specific return share types, maybe required to transport additional valuable information/properties
+                    break;
+                default:
+                    throw new NotImplementedException("Unexpected share type returned: " + foundShareType.ToString());
+            }
+            return share;
         }
 
         /// <summary>
@@ -460,15 +523,30 @@ namespace CompuMaster.Ocs
         /// <param name="perms">(optional) permission of the shared object</param>
         /// <param name="password">(optional) sets a password</param>
         /// <param name="public_upload">(optional) allows users to upload files or folders (only allowed for targetting folders, forbidden for files)</param>
-        public PublicShare ShareWithLink(string path, OcsPermission perms, OcsBoolParam public_upload, string name, DateTime? expiration, string password)
+        [Obsolete("Use CreateShareWithLink instead"), System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+        public PublicShare ShareWithLink(string path, OcsPermission perms, string password = null, OcsBoolParam public_upload = OcsBoolParam.None)
+        {
+            return CreateShareWithLink(path, perms, public_upload, "", (DateTime?)null, password);
+        }
+
+        /// <summary>
+        /// Shares a remote file with link
+        /// </summary>
+        /// <returns>instance of PublicShare with the share info</returns>
+        /// <param name="path">path to the remote file to share</param>
+        /// <param name="perms">(optional) permission of the shared object</param>
+        /// <param name="password">(optional) sets a password</param>
+        /// <param name="public_upload">(optional) allows users to upload files or folders (only allowed for targetting folders, forbidden for files)</param>
+        public PublicShare CreateShareWithLink(string path, OcsPermission perms, OcsBoolParam public_upload, string name, DateTime? expiration, string password)
         {
             if (String.IsNullOrEmpty(path)) throw new ArgumentOutOfRangeException(nameof(path));
-            if (perms == OcsPermission.None) throw new ArgumentOutOfRangeException(nameof(perms));
-            if (Convert.ToInt32(perms) == 0) throw new ArgumentOutOfRangeException(nameof(perms));
-            if (Convert.ToInt32(perms) < Convert.ToInt32(OcsPermission.None)) throw new ArgumentOutOfRangeException(nameof(perms));
-            if (Convert.ToInt32(perms) > Convert.ToInt32(OcsPermission.All)) throw new ArgumentOutOfRangeException(nameof(perms));
+            if ((Convert.ToInt32(perms) <= 0) || (Convert.ToInt32(perms) > Convert.ToInt32(OcsPermission.All))) throw new ArgumentOutOfRangeException(nameof(perms));
 
+            return (PublicShare)this.CreateShare(path, OcsShareType.Link, null, perms, public_upload, password, expiration, name, (string)null);
+
+            /*
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "shares"), Method.Post);
+            request.AddHeader("Accept", "text/xml, application/xml");
             request.AddHeader("OCS-APIREQUEST", "true");
 
             request.AddParameter("shareType", Convert.ToInt32(OcsShareType.Link));
@@ -503,7 +581,8 @@ namespace CompuMaster.Ocs
                 default:
                     throw new NotImplementedException("Unexpected share type returned: " + shareType.ToString());
             }
-            return share;         
+            return share;  
+            */
         }
 
         /// <summary>
@@ -514,7 +593,7 @@ namespace CompuMaster.Ocs
         /// <param name="username">name of the user whom we want to share a file/folder</param>
         /// <param name="perms">permissions of the shared object</param>
         /// <param name="remoteUser">Remote user</param>
-        [Obsolete("Use overloaded method instead"), System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+        [Obsolete("Use CreateShareWithUser instead"), System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
         public UserShare ShareWithUser(string path, string username, OcsPermission perms, OcsBoolParam remoteUser = OcsBoolParam.None)
         {
             return ShareWithUser(path, username, perms, (DateTime?)null, remoteUser);
@@ -527,9 +606,14 @@ namespace CompuMaster.Ocs
         /// <param name="path">path to the remote file to share</param>
         /// <param name="username">name of the user whom we want to share a file/folder</param>
         /// <param name="perms">permissions of the shared object</param>
-        public UserShare ShareWithUser(string path, string username, OcsPermission perms, DateTime? expiration)
+        /// <param name="expiration">An optional expiration date</param>
+        public UserShare CreateShareWithUser(string path, string username, OcsPermission perms, DateTime? expiration)
         {
-            return ShareWithUser(path, username, perms, expiration, OcsBoolParam.False);
+            if (String.IsNullOrEmpty(path)) throw new ArgumentOutOfRangeException(nameof(path));
+            if (String.IsNullOrEmpty(username)) throw new ArgumentOutOfRangeException(nameof(username));
+            if ((Convert.ToInt32(perms) <= 0) || (Convert.ToInt32(perms) > Convert.ToInt32(OcsPermission.All))) throw new ArgumentOutOfRangeException(nameof(perms));
+
+            return (UserShare)this.CreateShare(path, OcsShareType.User, username, perms, OcsBoolParam.None, (string)null, expiration, (string)null, (string)null);
         }
 
         /// <summary>
@@ -539,9 +623,14 @@ namespace CompuMaster.Ocs
         /// <param name="path">path to the remote file to share</param>
         /// <param name="username">name of the user whom we want to share a file/folder</param>
         /// <param name="perms">permissions of the shared object</param>
-        public RemoteShare ShareWithRemoteUser(string path, string username, OcsPermission perms, DateTime? expiration)
+        /// <param name="expiration">An optional expiration date</param>
+        public RemoteShare CreateShareWithRemoteUser(string path, string username, OcsPermission perms, DateTime? expiration)
         {
-            return (RemoteShare)ShareWithUser(path, username, perms, expiration, OcsBoolParam.True);
+            if (String.IsNullOrEmpty(path)) throw new ArgumentOutOfRangeException(nameof(path));
+            if (String.IsNullOrEmpty(username)) throw new ArgumentOutOfRangeException(nameof(username));
+            if ((Convert.ToInt32(perms) <= 0) || (Convert.ToInt32(perms) > Convert.ToInt32(OcsPermission.All))) throw new ArgumentOutOfRangeException(nameof(perms));
+
+            return (RemoteShare)this.CreateShare(path, OcsShareType.Remote, username, perms, OcsBoolParam.None, (string)null, expiration, (string)null, (string)null);
         }
 
         /// <summary>
@@ -552,16 +641,20 @@ namespace CompuMaster.Ocs
         /// <param name="username">name of the user whom we want to share a file/folder</param>
         /// <param name="perms">permissions of the shared object</param>
         /// <param name="remoteUser">Remote user</param>
+        [Obsolete("Use CreateShareWithUser or CreateShareWithRemoteUser instead"), System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
         public UserShare ShareWithUser(string path, string username, OcsPermission perms, DateTime? expiration, OcsBoolParam remoteUser)
         {
             if (String.IsNullOrEmpty(path)) throw new ArgumentOutOfRangeException(nameof(path));
             if (String.IsNullOrEmpty(username)) throw new ArgumentOutOfRangeException(nameof(username));
-            if (perms == OcsPermission.None) throw new ArgumentOutOfRangeException(nameof(perms));
-            if (Convert.ToInt32(perms) == 0) throw new ArgumentOutOfRangeException(nameof(perms));
-            if (Convert.ToInt32(perms) < Convert.ToInt32(OcsPermission.None)) throw new ArgumentOutOfRangeException(nameof(perms));
-            if (Convert.ToInt32(perms) > Convert.ToInt32(OcsPermission.All)) throw new ArgumentOutOfRangeException(nameof(perms));
+            if ((Convert.ToInt32(perms) <= 0) || (Convert.ToInt32(perms) > Convert.ToInt32(OcsPermission.All))) throw new ArgumentOutOfRangeException(nameof(perms));
 
+            if (remoteUser == OcsBoolParam.True)
+                return (RemoteShare)this.CreateShare(path, OcsShareType.Remote, username, perms, OcsBoolParam.None, (string)null, expiration, (string)null, (string)null);
+            else
+                return (UserShare)this.CreateShare(path, OcsShareType.User, username, perms, OcsBoolParam.None, (string)null, expiration, (string)null, (string)null);
+            /*
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "shares"), Method.Post);
+            request.AddHeader("Accept", "text/xml, application/xml");
             request.AddHeader("OCS-APIREQUEST", "true");
 
             if (remoteUser == OcsBoolParam.True)
@@ -595,6 +688,7 @@ namespace CompuMaster.Ocs
                     throw new NotImplementedException("Unexpected share type returned: " + shareType.ToString());
             }
             return share;
+            */
         }
         /// <summary>
         /// Shares a remote file with specified group
@@ -603,9 +697,10 @@ namespace CompuMaster.Ocs
         /// <param name="path">path to the remote file to share</param>
         /// <param name="groupName">name of the group whom we want to share a file/folder</param>
         /// <param name="perms">permissions of the shared object</param>
+        [Obsolete("Use CreateShareWithGroup instead"), System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
         public GroupShare ShareWithGroup(string path, string groupName, OcsPermission perms)
         {
-            return ShareWithGroup(path, groupName, perms, (DateTime?)null);
+            return CreateShareWithGroup(path, groupName, perms, (DateTime?)null);
         }
 
         /// <summary>
@@ -615,7 +710,8 @@ namespace CompuMaster.Ocs
         /// <param name="path">path to the remote file to share</param>
         /// <param name="groupName">name of the group whom we want to share a file/folder</param>
         /// <param name="perms">permissions of the shared object</param>
-        public GroupShare ShareWithGroup(string path, string groupName, OcsPermission perms, DateTime? expiration)
+        /// <param name="expiration">An optional expiration date</param>
+        public GroupShare CreateShareWithGroup(string path, string groupName, OcsPermission perms, DateTime? expiration)
         {
             if (String.IsNullOrEmpty(path)) throw new ArgumentOutOfRangeException(nameof(path));
             if (String.IsNullOrEmpty(groupName)) throw new ArgumentOutOfRangeException(nameof(groupName));
@@ -624,7 +720,11 @@ namespace CompuMaster.Ocs
             if (Convert.ToInt32(perms) < Convert.ToInt32(OcsPermission.None)) throw new ArgumentOutOfRangeException(nameof(perms));
             if (Convert.ToInt32(perms) > Convert.ToInt32(OcsPermission.All)) throw new ArgumentOutOfRangeException(nameof(perms));
 
+            return (GroupShare)this.CreateShare(path, OcsShareType.Group, groupName, perms, OcsBoolParam.None, (string)null, expiration, (string)null, (string)null);
+
+            /*
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "shares"), Method.Post);
+            request.AddHeader("Accept", "text/xml, application/xml");
             request.AddHeader("OCS-APIREQUEST", "true");
 
             request.AddParameter("shareType", Convert.ToInt32(OcsShareType.Group));
@@ -652,6 +752,7 @@ namespace CompuMaster.Ocs
                     throw new NotImplementedException("Unexpected share type returned: " + shareType.ToString());
             }
             return share;
+            */
         }
 
         private XElement GetOcsResponseData(RestResponse ocsResponse)
@@ -682,6 +783,7 @@ namespace CompuMaster.Ocs
         public List<Share> GetShares(string path = "", OcsBoolParam reshares = OcsBoolParam.None, OcsBoolParam subfiles = OcsBoolParam.None)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "shares"), Method.Get);
+            request.AddHeader("Accept", "text/xml, application/xml");
             request.AddHeader("OCS-APIREQUEST", "true");
 
             if ((path != null) && (!path.Equals("")))
@@ -767,7 +869,7 @@ namespace CompuMaster.Ocs
 
             CheckOcsStatus(response);
 
-            return GetDataElements(response.Content);
+            return GetStringListFromDataElements(response.Content);
         }
 
         /// <summary>
@@ -788,7 +890,7 @@ namespace CompuMaster.Ocs
 
             CheckOcsStatus(response);
 
-            return GetDataElements(response.Content);
+            return GetStringListFromDataElements(response.Content);
         }
 
         /// <summary>
@@ -796,7 +898,7 @@ namespace CompuMaster.Ocs
         /// </summary>
         /// <returns>list of users</returns>
         /// <param name="search">name of user to be searched for</param>
-        public List<string> Sharees(string search, bool lookupGlobally, string itemType)
+        public List<Sharee> Sharees(string search, bool lookupGlobally, string itemType)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "sharees"), Method.Get);
             request.AddHeader("Accept", "text/xml, application/xml");
@@ -810,7 +912,7 @@ namespace CompuMaster.Ocs
 
             CheckOcsStatus(response);
 
-            return GetDataElements(response.Content);
+            return GetShareesFromResponse(response);
         }
 
         /// <summary>
@@ -830,7 +932,28 @@ namespace CompuMaster.Ocs
 
             CheckOcsStatus(response);
 
-            return GetDataElements(response.Content);
+            return GetStringListFromDataElements(response.Content);
+        }
+
+        private List<Sharee> GetShareesFromResponse(RestSharp.RestResponse response)
+        {
+            var dataChildrenXNames = this.GetChildNodesFromData(response.Content, "exact");
+            var xnames = new List<string>();
+            foreach (XElement exactNode in dataChildrenXNames)
+            {
+                xnames.Add(exactNode.Name.LocalName);
+            }
+            var dataChildren = this.GetChildNodesFromData(response.Content, xnames);
+            var result = new List<Sharee>();
+            foreach (XElement ShareeType in dataChildren)
+            {
+                foreach (XElement ShareeItem in GetChildNodesFromXElement(ShareeType, "element"))
+                {
+                    var shareType = (OcsShareType)int.Parse(GetSingleChildNodeFromXElement(GetSingleChildNodeFromXElement(ShareeItem, "value"), "shareType").Value);
+                    result.Add(new Sharee(shareType, ShareeItem));
+                }
+            }
+            return result;
         }
 
         private void ApplyUrlSegment(RestRequest request, string key, string value)
@@ -868,6 +991,7 @@ namespace CompuMaster.Ocs
         public User GetUserAttributes(string username)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}", Method.Get);
+            request.AddHeader("Accept", "text/xml, application/xml");
             request.AddHeader("OCS-APIREQUEST", "true");
 
             //request.AddUrlSegment("userid", username);
@@ -887,7 +1011,7 @@ namespace CompuMaster.Ocs
         /// <param name="username">name of user to modify</param>
         /// <param name="key">key of the attribute to set</param>
         /// <param name="value">value to set</param>
-        public bool SetUserAttribute(string username, OCSUserAttributeKey key, string value)
+        public void SetUserAttribute(string username, OCSUserAttributeKey key, string value)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceCloud, "users") + "/{userid}", Method.Put);
             request.AddHeader("Accept", "text/xml, application/xml");
@@ -900,7 +1024,6 @@ namespace CompuMaster.Ocs
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
             CheckOcsStatus(response);
-            return true;
         }
 
         /// <summary>
@@ -941,7 +1064,7 @@ namespace CompuMaster.Ocs
 
             CheckOcsStatus(response);
 
-            return GetDataElements(response.Content);
+            return GetStringListFromDataElements(response.Content);
         }
 
         /// <summary>
@@ -1022,7 +1145,7 @@ namespace CompuMaster.Ocs
                     return new List<string>();
             }
 
-            return GetDataElements(response.Content);
+            return GetStringListFromDataElements(response.Content);
         }
 
         /// <summary>
@@ -1123,7 +1246,7 @@ namespace CompuMaster.Ocs
 
             CheckOcsStatus(response);
 
-            return GetDataElements(response.Content);
+            return GetStringListFromDataElements(response.Content);
         }
         #endregion
 
@@ -1135,6 +1258,7 @@ namespace CompuMaster.Ocs
         public Config GetConfig()
         {
             var request = new RestRequest(GetOcsPath("", "config"), Method.Get);
+            request.AddHeader("Accept", "text/xml, application/xml");
             request.AddHeader("OCS-APIREQUEST", "true");
 
             var response = rest.ExecuteAsync(request).Result;
@@ -1142,11 +1266,11 @@ namespace CompuMaster.Ocs
             CheckOcsStatus(response);
 
             Config cfg = new Config();
-            cfg.Contact = GetFromData(response.Content, "contact");
-            cfg.Host = GetFromData(response.Content, "host");
-            cfg.Ssl = GetFromData(response.Content, "ssl");
-            cfg.Version = GetFromData(response.Content, "version");
-            cfg.Website = GetFromData(response.Content, "website");
+            cfg.Contact = GetStringValueFromData(response.Content, "contact");
+            cfg.Host = GetStringValueFromData(response.Content, "host");
+            cfg.Ssl = GetStringValueFromData(response.Content, "ssl");
+            cfg.Version = GetStringValueFromData(response.Content, "version");
+            cfg.Website = GetStringValueFromData(response.Content, "website");
 
             return cfg;
         }
@@ -1234,7 +1358,7 @@ namespace CompuMaster.Ocs
 
             CheckOcsStatus(response);
 
-            return GetDataElements(response.Content);
+            return GetStringListFromDataElements(response.Content);
         }
 
         /// <summary>
@@ -1356,7 +1480,7 @@ namespace CompuMaster.Ocs
         /// <returns>Element value</returns>
         /// <param name="response">XML OCS response</param>
         /// <param name="elementName">XML Element name</param>
-        private string GetFromData(string response, string elementName)
+        private string GetStringValueFromData(string response, string elementName)
         {
             XDocument xdoc = XDocument.Parse(response);
 
@@ -1375,7 +1499,7 @@ namespace CompuMaster.Ocs
         /// </summary>
         /// <returns>The data elements</returns>
         /// <param name="response">XML OCS Response</param>
-        private List<string> GetDataElements(string response)
+        private List<string> GetStringListFromDataElements(string response)
         {
             List<string> result = new List<string>();
             XDocument xdoc = XDocument.Parse(response);
@@ -1383,6 +1507,126 @@ namespace CompuMaster.Ocs
             foreach (XElement data in xdoc.Descendants(XName.Get("data")))
             {
                 foreach (XElement node in data.Descendants(XName.Get("element")))
+                {
+                    result.Add(node.Value);
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Gets the data element values
+        /// </summary>
+        /// <returns>The data elements</returns>
+        /// <param name="response">XML OCS Response</param>
+        private List<XElement> GetChildNodesFromData(string response, string xname)
+        {
+            List<XElement> result = new List<XElement>();
+            XDocument xdoc = XDocument.Parse(response);
+
+            foreach (XElement data in xdoc.Descendants(XName.Get("data")))
+            {
+                foreach (XElement node in GetChildNodesFromXElement(data, xname))
+                {
+                    foreach (XElement enode in GetChildNodesFromXElement(node))
+                    {
+                        result.Add(enode);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Gets a sub element which may appear 0 or 1 times (2 or more times throws exception)
+        /// </summary>
+        /// <returns>The parent element</returns>
+        private XElement GetSingleChildNodeFromXElement(XElement parent, string xname)
+        {
+            var result = new List<XElement>();
+            foreach (XElement node in parent.Descendants(XName.Get(xname)))
+            {
+                if (node.Parent == parent)
+                    result.Add(node);
+            }
+            if (result.Count > 1)
+                throw new Exception("More than 1 child found");
+            else if (result.Count == 1)
+                return result[0];
+            else
+                return null;
+        }
+
+        /// <summary>
+        /// Gets the sub element values
+        /// </summary>
+        /// <returns>The parent element</returns>
+        private List<XElement> GetChildNodesFromXElement(XElement parent, string xname)
+        {
+            var result = new List<XElement>();
+            foreach (XElement node in parent.Descendants(XName.Get(xname)))
+            {
+                if (node.Parent == parent)
+                    result.Add(node);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Gets the sub element values
+        /// </summary>
+        /// <returns>The parent element</returns>
+        private List<XElement> GetChildNodesFromXElement(XElement parent)
+        {
+            var result = new List<XElement>();
+            foreach (XElement node in parent.Descendants())
+            {
+                if (node.Parent == parent)
+                    result.Add(node);
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Gets the data element values
+        /// </summary>
+        /// <returns>The data elements</returns>
+        /// <param name="response">XML OCS Response</param>
+        private List<XElement> GetChildNodesFromData(string response, List<string> xnames)
+        {
+            List<XElement> result = new List<XElement>();
+            XDocument xdoc = XDocument.Parse(response);
+
+            foreach (XElement data in xdoc.Descendants(XName.Get("data")))
+            {
+                foreach (string xname in xnames)
+                {
+                    foreach (XElement node in GetChildNodesFromXElement(data, xname))
+                    {
+                        if (node.Parent == data)
+                            result.Add(node);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Gets the data element values
+        /// </summary>
+        /// <returns>The data elements</returns>
+        /// <param name="response">XML OCS Response</param>
+        private List<string> GetStringListFromDataElements(string response, string elementName)
+        {
+            List<string> result = new List<string>();
+            XDocument xdoc = XDocument.Parse(response);
+
+            foreach (XElement data in xdoc.Descendants(XName.Get("data")))
+            {
+                foreach (XElement node in data.Descendants(XName.Get(elementName)))
                 {
                     result.Add(node.Value);
                 }
@@ -1442,7 +1686,7 @@ namespace CompuMaster.Ocs
                     throw new OcsResponseException(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
             }
             else if (String.IsNullOrEmpty(response.Content))
-                throw new OcsResponseException("Missing OCS response content", 0, null, response.StatusCode);
+                throw new OcsResponseException("Missing OCS response content (" + response.StatusDescription + ")", 0, null, response.StatusCode);
             else
                 throw new OcsResponseException("OCS failure (invalid OCS response content))", 0, null, 0);
         }
