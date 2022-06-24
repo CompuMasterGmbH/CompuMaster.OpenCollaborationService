@@ -496,7 +496,12 @@ namespace CompuMaster.Ocs
             if (result.Count == 0)
                 throw new Exception("Failed to create share");
             else if (result.Count == 1)
-                return result[0];
+            {
+                // WORKAROUND for bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
+                return this.UpdateShare(result[0].ShareId, expireDate: expireDate.Value);
+                // return result
+                //return result[0];
+            }
             else
                 throw new Exception("Share ID exists " + result.Count + " times, 1 time expected");
 

@@ -396,8 +396,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			else
 				throw new NotImplementedException();
 
-			if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
-				Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
+			//if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
+			Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
 
 
 			//test sharing of folder
@@ -422,8 +422,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			else
 				throw new NotImplementedException();
 
-			if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
-				Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
+			//if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
+			Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
 
 			share = c.CreateShareWithLink("/share-folder-test", OcsPermission.All, OcsBoolParam.True, "test for share-folder to link (with public-upload)", ExpectedExpiry, "public-test-with-C0mplex-password");
 			Assert.That(share.Name, Is.EqualTo("test for share-folder to link (with public-upload)"));
@@ -440,8 +440,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			else
 				throw new NotImplementedException();
 
-			if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
-				Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
+			//if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
+			Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
 
 
 		}
@@ -465,8 +465,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			Assert.That(share.SharedWith, Is.EqualTo("sharetest"));
 			Assert.That(share.ShareId, Is.Not.EqualTo(0));
 			Assert.That(share.Type, Is.EqualTo(Ocs.Core.OcsShareType.User));
-			if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
-				Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
+			//if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
+			Assert.That(share.Expiration.Value.Date, Is.EqualTo(ExpectedExpiry.Date));
 			Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read | Ocs.Core.OcsPermission.Share | Ocs.Core.OcsPermission.Update)); //typically missing at OwnCloud after share-creation: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Delete
 
 
@@ -524,8 +524,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			Assert.That(share.SharedWith, Is.EqualTo("testgroup"));
 			Assert.That(share.ShareId, Is.Not.EqualTo(0));
 			Assert.That(share.Type, Is.EqualTo(Ocs.Core.OcsShareType.Group));
-			if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
-				Assert.That(share.Expiration.GetValueOrDefault().Date, Is.EqualTo(ExpectedExpiry.Date));
+			//if (this.GetType() != typeof(OcsApiNextCloudTest)) //following test is deactivated temporary due to bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
+			Assert.That(share.Expiration.GetValueOrDefault().Date, Is.EqualTo(ExpectedExpiry.Date));
 			Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read | Ocs.Core.OcsPermission.Share | Ocs.Core.OcsPermission.Update)); //typically missing at OwnCloud after share-creation: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Delete
 		}
 
