@@ -29,6 +29,10 @@ namespace CompuMaster.Ocs.Types
 			if (node != null)
 				this.ShareWithDisplayName = node.Value;
 
+			node = data.Element(XName.Get("shareWithAdditionalInfo"));
+			if (node != null)
+				this.ShareWithAdditionalInfo = node.Value;
+
 			node = data.Element(XName.Get("icon"));
 			if (node != null)
 				this.Icon = node.Value;
@@ -52,13 +56,21 @@ namespace CompuMaster.Ocs.Types
 		/// </summary>
 		public string Label { get; set; }
 		/// <summary>
-		/// The share recipient name
+		/// The share recipient name, e.g. user1
 		/// </summary>
 		public string ShareWith { get; set; }
 		/// <summary>
-		/// The share recipient display name
+		/// The share recipient display name, e.g. "User 1"
 		/// </summary>
 		public string ShareWithDisplayName { get; set; }
+		/// <summary>
+		/// The share recipient additional info, e.g. user1@user1.com
+		/// </summary>
+		public string ShareWithAdditionalInfo { get; set; }
+		/// <summary>
+		/// The sharee represents an exact match to the search
+		/// </summary>
+		public bool IsExactResult { get; set; }
 
 		/// <summary>
 		/// Share summary

@@ -126,7 +126,7 @@ namespace CompuMaster.Ocs
 
             List<ResourceInfo> resources = new List<ResourceInfo>();
             var result = this.dav.Propfind(GetDavUri(path)).Result;
-            CheckDavStatus(result);
+            OcsDeserializationTools.CheckDavStatus(result);
 
             foreach (var item in result.Resources)
             {
@@ -165,7 +165,7 @@ namespace CompuMaster.Ocs
             if (path == null || path == "") throw new ArgumentNullException(nameof(path));
 
             var result = this.dav.Propfind(GetDavUri(path)).Result;
-            CheckDavStatus(result);
+            OcsDeserializationTools.CheckDavStatus(result);
 
             if (result.Resources.Count > 0)
             {
@@ -201,22 +201,6 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
-        /// Check WebDavResult and throw exceptions if it failed
-        /// </summary>
-        /// <param name="result"></param>
-        /// <exception cref="Ocs.Exceptions.OcsResponseException"></exception>
-        private void CheckDavStatus(WebDav.WebDavResponse result)
-        {
-            if (result.IsSuccessful == false)
-            {
-                if (result.StatusCode != 0)
-                    throw new Ocs.Exceptions.OcsResponseException(result.Description, 0, null, (HttpStatusCode)result.StatusCode);
-                else
-                    throw new Ocs.Exceptions.OcsResponseException(result.Description, 0, null, 0);
-            }
-        }
-
-        /// <summary>
         /// Download the specified file
         /// </summary>
         /// <param name="path">File remote Path</param>
@@ -224,7 +208,7 @@ namespace CompuMaster.Ocs
         public Stream Download(string path)
         {
             var result = dav.GetRawFile(GetDavUri(path)).Result;
-            CheckDavStatus(result);
+            OcsDeserializationTools.CheckDavStatus(result);
             return result.Stream;
         }
 
@@ -238,7 +222,7 @@ namespace CompuMaster.Ocs
         public void Upload(string path, Stream data, string contentType)
         {
             var result = dav.PutFile(GetDavUri(path), data, contentType).Result;
-            CheckDavStatus(result);
+            OcsDeserializationTools.CheckDavStatus(result);
         }
 
         /// <summary>
@@ -250,7 +234,7 @@ namespace CompuMaster.Ocs
         public void Upload(string path, Stream data)
         {
             var result = dav.PutFile(GetDavUri(path), data).Result;
-            CheckDavStatus(result);
+            OcsDeserializationTools.CheckDavStatus(result);
         }
 
         /// <summary>
@@ -263,9 +247,9 @@ namespace CompuMaster.Ocs
             var result = this.dav.Propfind(GetDavUri(path)).Result;
             if (result.StatusCode == 404)
                 return false;
-            else 
+            else
             {
-                CheckDavStatus(result);
+                OcsDeserializationTools.CheckDavStatus(result);
                 return result.Resources.Count != 0;
             }
         }
@@ -278,7 +262,7 @@ namespace CompuMaster.Ocs
         public void CreateDirectory(string path)
         {
             var result = dav.Mkcol(GetDavUri(path)).Result;
-            CheckDavStatus(result);
+            OcsDeserializationTools.CheckDavStatus(result);
         }
 
         /// <summary>
@@ -289,7 +273,7 @@ namespace CompuMaster.Ocs
         public void Delete(string path)
         {
             var result = dav.Delete(GetDavUri(path)).Result;
-            CheckDavStatus(result);
+            OcsDeserializationTools.CheckDavStatus(result);
         }
 
         /// <summary>
@@ -301,7 +285,7 @@ namespace CompuMaster.Ocs
         public void Copy(string source, string destination)
         {
             var result = dav.Copy(GetDavUri(source), GetDavUri(destination)).Result;
-            CheckDavStatus(result);
+            OcsDeserializationTools.CheckDavStatus(result);
         }
 
         /// <summary>
@@ -313,7 +297,7 @@ namespace CompuMaster.Ocs
         public void Move(string source, string destination)
         {
             var result = dav.Move(GetDavUri(source), GetDavUri(destination)).Result;
-            CheckDavStatus(result);
+            OcsDeserializationTools.CheckDavStatus(result);
         }
 
         /// <summary>
@@ -325,7 +309,7 @@ namespace CompuMaster.Ocs
         {
             var uri = GetUri("/index.php/apps/files/ajax/download.php?dir=" + WebUtility.UrlEncode(path));
             var result = dav.GetRawFile(uri).Result;
-            CheckDavStatus(result);
+            OcsDeserializationTools.CheckDavStatus(result);
             return result.Stream;
         }
         #endregion
@@ -343,7 +327,7 @@ namespace CompuMaster.Ocs
             request.AddHeader("OCS-APIREQUEST", "true");
             var response = rest.ExecuteAsync(request).Result;
 
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
 
             var content = response.Content;
             // TODO: Parse response
@@ -364,7 +348,7 @@ namespace CompuMaster.Ocs
             request.AddHeader("OCS-APIREQUEST", "true");
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -381,11 +365,11 @@ namespace CompuMaster.Ocs
             request.AddHeader("OCS-APIREQUEST", "true");
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
         #endregion
 
-        #region SHares
+        #region Shares
         /// <summary>
         /// Unshares a file or directory
         /// </summary>
@@ -400,7 +384,7 @@ namespace CompuMaster.Ocs
             request.AddHeader("OCS-APIREQUEST", "true");
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -411,7 +395,22 @@ namespace CompuMaster.Ocs
         /// <param name="perms">(optional) update permissions</param>
         /// <param name="password">(optional) updated password for public link Share</param>
         /// <param name="public_upload">(optional) If set to <c>true</c> enables public upload for public shares</param>
-        public void UpdateShare(int shareId, OcsPermission perms = OcsPermission.None, string password = null, OcsBoolParam public_upload = OcsBoolParam.None)
+        [Obsolete("Use overloaded method instead"), System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+        public void UpdateShare(int shareId, OcsPermission perms, string password, OcsBoolParam public_upload)
+        {
+            UpdateShare(shareId, perms, public_upload, (DateTime?)null, password);
+        }
+
+        /// <summary>
+        /// Updates a given share. NOTE: Only one of the update parameters can be specified at once
+        /// </summary>
+        /// <returns><c>true</c>, if share was updated, <c>false</c> otherwise</returns>
+        /// <param name="shareId">Share identifier</param>
+        /// <param name="perms">(optional) update permissions</param>
+        /// <param name="password">(optional) updated password for public link Share</param>
+        /// <param name="public_upload">(optional) If set to <c>true</c> enables public upload for public shares</param>
+        /// <param name="expireDate">(optional) updated expiration date for the share</param>
+        public Share UpdateShare(int shareId, OcsPermission perms = OcsPermission.None, OcsBoolParam public_upload = OcsBoolParam.None, DateTime? expireDate = null, string password = null)
         {
             //if (perms == OcsPermission.None) throw new ArgumentOutOfRangeException(nameof(perms));
             if (Convert.ToInt32(perms) == 0) throw new ArgumentOutOfRangeException(nameof(perms));
@@ -427,16 +426,25 @@ namespace CompuMaster.Ocs
             request.AddHeader("OCS-APIREQUEST", "true");
 
             if (perms != OcsPermission.None)
-                request.AddQueryParameter("permissions", Convert.ToInt32(perms).ToString());
+                request.AddParameter("permissions", Convert.ToInt32(perms).ToString());
             if (password != null)
-                request.AddQueryParameter("password", password);
+                request.AddParameter("password", password);
             if (public_upload == OcsBoolParam.True)
-                request.AddQueryParameter("publicUpload", "true");
+                request.AddParameter("publicUpload", "true");
             else if (public_upload == OcsBoolParam.False)
-                request.AddQueryParameter("publicUpload", "false");
+                request.AddParameter("publicUpload", "false");
+            if (expireDate.HasValue) request.AddParameter("expireDate", expireDate.Value.ToString("yyyy-MM-dd HH:mm:ss"));
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
+
+            List<Share> result = OcsDeserializationTools.GetShareItem(response.Content);
+            if (result.Count == 0)
+                throw new KeyNotFoundException("Share " + shareId + " doesn't exist");
+            else if (result.Count == 1)
+                return result[0];
+            else
+                throw new Exception("Share ID exists " + result.Count + " times, 1 time expected");
         }
 
         /// <summary>
@@ -464,7 +472,7 @@ namespace CompuMaster.Ocs
 
             request.AddParameter("shareType", Convert.ToInt32(shareType));
             request.AddParameter("path", path);
-            if (!String.IsNullOrEmpty(shareWith)) 
+            if (!String.IsNullOrEmpty(shareWith))
                 request.AddParameter("shareWith", shareWith);
             if (!String.IsNullOrEmpty(name))
             {
@@ -479,11 +487,20 @@ namespace CompuMaster.Ocs
             else if (public_upload == OcsBoolParam.False)
                 request.AddParameter("publicUpload", "false");
             if (expireDate.HasValue) request.AddParameter("expireDate", expireDate.Value.ToString("yyyy-MM-dd HH:mm:ss"));
-            
+
             var response = rest.ExecuteAsync(request).Result;
 
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
 
+            List<Share> result = OcsDeserializationTools.GetShareItem(response.Content);
+            if (result.Count == 0)
+                throw new Exception("Failed to create share");
+            else if (result.Count == 1)
+                return result[0];
+            else
+                throw new Exception("Share ID exists " + result.Count + " times, 1 time expected");
+
+            /*
             XElement data = GetOcsResponseData(response);
             var node = data.Element(XName.Get("share_type"));
             if (node == null) throw new Ocs.Exceptions.OcsResponseException("Result data not in expected format", 0, "", response.StatusCode);
@@ -513,6 +530,7 @@ namespace CompuMaster.Ocs
                     throw new NotImplementedException("Unexpected share type returned: " + foundShareType.ToString());
             }
             return share;
+            */
         }
 
         /// <summary>
@@ -774,6 +792,29 @@ namespace CompuMaster.Ocs
         }
 
         /// <summary>
+        /// Get a share
+        /// </summary>
+        /// <param name="shareId">The share ID</param>
+        public Share GetShare(int shareId)
+        {
+            var request = new RestRequest(GetOcsPath(ocsServiceShare, "shares/" + shareId.ToString()), Method.Get);
+            request.AddHeader("Accept", "text/xml, application/xml");
+            request.AddHeader("OCS-APIREQUEST", "true");
+
+            var response = rest.ExecuteAsync(request).Result;
+
+            OcsDeserializationTools.CheckOcsStatus(response);
+
+            List<Share> result = OcsDeserializationTools.GetShareList(response.Content);
+            if (result.Count == 0)
+                throw new KeyNotFoundException("Share " + shareId + " doesn't exist");
+            else if (result.Count == 1)
+                return result[0];
+            else
+                throw new Exception("Share ID exists " + result.Count + " times, 1 time expected");
+        }
+
+        /// <summary>
         /// Gets all shares for the current user when <c>path</c> is not set, otherwise it gets shares for the specific file or folder
         /// </summary>
         /// <returns>array of shares or empty array if the operation failed</returns>
@@ -799,9 +840,9 @@ namespace CompuMaster.Ocs
 
             var response = rest.ExecuteAsync(request).Result;
 
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
 
-            return GetShareList(response.Content);
+            return OcsDeserializationTools.GetShareList(response.Content);
         }
         #endregion
 
@@ -822,7 +863,7 @@ namespace CompuMaster.Ocs
             request.AddParameter("password", initialPassword);
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -840,7 +881,7 @@ namespace CompuMaster.Ocs
             ApplyUrlSegment(request, "userid", username);
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -867,9 +908,9 @@ namespace CompuMaster.Ocs
 
             var response = rest.ExecuteAsync(request).Result;
 
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
 
-            return GetStringListFromDataElements(response.Content);
+            return OcsDeserializationTools.GetStringListFromDataElements(response.Content);
         }
 
         /// <summary>
@@ -888,16 +929,16 @@ namespace CompuMaster.Ocs
 
             var response = rest.ExecuteAsync(request).Result;
 
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
 
-            return GetStringListFromDataElements(response.Content);
+            return OcsDeserializationTools.GetStringListFromDataElements(response.Content);
         }
 
         /// <summary>
         /// Searches for users via sharee API
         /// </summary>
         /// <returns>list of users</returns>
-        /// <param name="search">name of user to be searched for</param>
+        /// <param name="search">name of user to be searched for (empty values might lead to result with 0 or all users depending on remote server software version (NextCloud vs. OwnCloud)</param>
         public List<Sharee> Sharees(string search, bool lookupGlobally, string itemType)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "sharees"), Method.Get);
@@ -910,9 +951,9 @@ namespace CompuMaster.Ocs
 
             var response = rest.ExecuteAsync(request).Result;
 
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
 
-            return GetShareesFromResponse(response);
+            return OcsDeserializationTools.GetShareesFromResponse(response.Content);
         }
 
         /// <summary>
@@ -920,7 +961,7 @@ namespace CompuMaster.Ocs
         /// </summary>
         /// <returns>list of users</returns>
         /// <param name="username">name of user to be searched for</param>
-        public List<string> ShareesRecommended(string itemType)
+        public List<Sharee> ShareesRecommended(string itemType)
         {
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "sharees_recommended"), Method.Get);
             request.AddHeader("Accept", "text/xml, application/xml");
@@ -930,30 +971,9 @@ namespace CompuMaster.Ocs
 
             var response = rest.ExecuteAsync(request).Result;
 
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
 
-            return GetStringListFromDataElements(response.Content);
-        }
-
-        private List<Sharee> GetShareesFromResponse(RestSharp.RestResponse response)
-        {
-            var dataChildrenXNames = this.GetChildNodesFromData(response.Content, "exact");
-            var xnames = new List<string>();
-            foreach (XElement exactNode in dataChildrenXNames)
-            {
-                xnames.Add(exactNode.Name.LocalName);
-            }
-            var dataChildren = this.GetChildNodesFromData(response.Content, xnames);
-            var result = new List<Sharee>();
-            foreach (XElement ShareeType in dataChildren)
-            {
-                foreach (XElement ShareeItem in GetChildNodesFromXElement(ShareeType, "element"))
-                {
-                    var shareType = (OcsShareType)int.Parse(GetSingleChildNodeFromXElement(GetSingleChildNodeFromXElement(ShareeItem, "value"), "shareType").Value);
-                    result.Add(new Sharee(shareType, ShareeItem));
-                }
-            }
-            return result;
+            return OcsDeserializationTools.GetShareesFromResponse(response.Content);
         }
 
         private void ApplyUrlSegment(RestRequest request, string key, string value)
@@ -999,9 +1019,9 @@ namespace CompuMaster.Ocs
 
             var response = rest.ExecuteAsync(request).Result;
 
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
 
-            return GetUser(response.Content);
+            return OcsDeserializationTools.GetUser(response.Content);
         }
 
         /// <summary>
@@ -1023,7 +1043,7 @@ namespace CompuMaster.Ocs
             request.AddParameter("value", value);
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
         }
 
         /// <summary>
@@ -1043,7 +1063,7 @@ namespace CompuMaster.Ocs
             request.AddParameter("groupid", groupName);
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -1062,9 +1082,9 @@ namespace CompuMaster.Ocs
 
             var response = rest.ExecuteAsync(request).Result;
 
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
 
-            return GetStringListFromDataElements(response.Content);
+            return OcsDeserializationTools.GetStringListFromDataElements(response.Content);
         }
 
         /// <summary>
@@ -1096,7 +1116,7 @@ namespace CompuMaster.Ocs
             request.AddParameter("groupid", groupName);
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -1116,7 +1136,7 @@ namespace CompuMaster.Ocs
             request.AddParameter("groupid", groupName);
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -1137,7 +1157,7 @@ namespace CompuMaster.Ocs
 
             try
             {
-                CheckOcsStatus(response);
+                OcsDeserializationTools.CheckOcsStatus(response);
             }
             catch (OcsResponseException ocserr)
             {
@@ -1145,7 +1165,7 @@ namespace CompuMaster.Ocs
                     return new List<string>();
             }
 
-            return GetStringListFromDataElements(response.Content);
+            return OcsDeserializationTools.GetStringListFromDataElements(response.Content);
         }
 
         /// <summary>
@@ -1177,7 +1197,7 @@ namespace CompuMaster.Ocs
             request.AddParameter("groupid", groupName);
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
         #endregion
 
@@ -1196,7 +1216,7 @@ namespace CompuMaster.Ocs
             request.AddParameter("groupid", groupName);
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -1214,7 +1234,7 @@ namespace CompuMaster.Ocs
             ApplyUrlSegment(request, "groupid", groupName);
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -1244,9 +1264,9 @@ namespace CompuMaster.Ocs
 
             var response = rest.ExecuteAsync(request).Result;
 
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
 
-            return GetStringListFromDataElements(response.Content);
+            return OcsDeserializationTools.GetStringListFromDataElements(response.Content);
         }
         #endregion
 
@@ -1263,14 +1283,14 @@ namespace CompuMaster.Ocs
 
             var response = rest.ExecuteAsync(request).Result;
 
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
 
             Config cfg = new Config();
-            cfg.Contact = GetStringValueFromData(response.Content, "contact");
-            cfg.Host = GetStringValueFromData(response.Content, "host");
-            cfg.Ssl = GetStringValueFromData(response.Content, "ssl");
-            cfg.Version = GetStringValueFromData(response.Content, "version");
-            cfg.Website = GetStringValueFromData(response.Content, "website");
+            cfg.Contact = OcsDeserializationTools.GetStringValueFromData(response.Content, "contact");
+            cfg.Host = OcsDeserializationTools.GetStringValueFromData(response.Content, "host");
+            cfg.Ssl = OcsDeserializationTools.GetStringValueFromData(response.Content, "ssl");
+            cfg.Version = OcsDeserializationTools.GetStringValueFromData(response.Content, "version");
+            cfg.Website = OcsDeserializationTools.GetStringValueFromData(response.Content, "website");
 
             return cfg;
         }
@@ -1299,9 +1319,9 @@ namespace CompuMaster.Ocs
 
             var response = rest.ExecuteAsync(request).Result;
 
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
 
-            return GetAttributeList(response.Content);
+            return OcsDeserializationTools.GetAttributeList(response.Content);
         }
 
         /// <summary>
@@ -1321,7 +1341,7 @@ namespace CompuMaster.Ocs
             request.AddParameter("value", value);
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -1339,7 +1359,7 @@ namespace CompuMaster.Ocs
             request.AddHeader("OCS-APIREQUEST", "true");
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
         #endregion
 
@@ -1356,9 +1376,9 @@ namespace CompuMaster.Ocs
 
             var response = rest.ExecuteAsync(request).Result;
 
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
 
-            return GetStringListFromDataElements(response.Content);
+            return OcsDeserializationTools.GetStringListFromDataElements(response.Content);
         }
 
         /// <summary>
@@ -1376,9 +1396,9 @@ namespace CompuMaster.Ocs
 
             var response = rest.ExecuteAsync(request).Result;
 
-            CheckOcsStatus(response);
+            OcsDeserializationTools.CheckOcsStatus(response);
 
-            return GetAppInfo(response.Content);
+            return OcsDeserializationTools.GetAppInfo(response.Content);
         }
 
         /// <summary>
@@ -1396,7 +1416,7 @@ namespace CompuMaster.Ocs
             ApplyUrlSegment(request, "appid", appName);
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
 
         /// <summary>
@@ -1414,7 +1434,7 @@ namespace CompuMaster.Ocs
             ApplyUrlSegment(request, "appid", appName);
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
-            CheckOcsResponseStatus(response);
+            OcsDeserializationTools.CheckOcsResponseStatus(response);
         }
         #endregion
         #endregion
@@ -1450,465 +1470,6 @@ namespace CompuMaster.Ocs
         {
             var slash = (!service.Equals("")) ? "/" : "";
             return service + slash + action;
-        }
-        #endregion
-
-        #region OCS Response parsing
-        /// <summary>
-        /// Get element value from OCS Meta
-        /// </summary>
-        /// <returns>Element value</returns>
-        /// <param name="response">XML OCS response</param>
-        /// <param name="elementName">XML Element name</param>
-        private string GetFromMeta(string response, string elementName)
-        {
-            XDocument xdoc = XDocument.Parse(response);
-
-            foreach (XElement data in xdoc.Descendants(XName.Get("meta")))
-            {
-                var node = data.Element(XName.Get(elementName));
-                if (node != null)
-                    return node.Value;
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Get element value from OCS Data
-        /// </summary>
-        /// <returns>Element value</returns>
-        /// <param name="response">XML OCS response</param>
-        /// <param name="elementName">XML Element name</param>
-        private string GetStringValueFromData(string response, string elementName)
-        {
-            XDocument xdoc = XDocument.Parse(response);
-
-            foreach (XElement data in xdoc.Descendants(XName.Get("data")))
-            {
-                var node = data.Element(XName.Get(elementName));
-                if (node != null)
-                    return node.Value;
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Gets the data element values
-        /// </summary>
-        /// <returns>The data elements</returns>
-        /// <param name="response">XML OCS Response</param>
-        private List<string> GetStringListFromDataElements(string response)
-        {
-            List<string> result = new List<string>();
-            XDocument xdoc = XDocument.Parse(response);
-
-            foreach (XElement data in xdoc.Descendants(XName.Get("data")))
-            {
-                foreach (XElement node in data.Descendants(XName.Get("element")))
-                {
-                    result.Add(node.Value);
-                }
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Gets the data element values
-        /// </summary>
-        /// <returns>The data elements</returns>
-        /// <param name="response">XML OCS Response</param>
-        private List<XElement> GetChildNodesFromData(string response, string xname)
-        {
-            List<XElement> result = new List<XElement>();
-            XDocument xdoc = XDocument.Parse(response);
-
-            foreach (XElement data in xdoc.Descendants(XName.Get("data")))
-            {
-                foreach (XElement node in GetChildNodesFromXElement(data, xname))
-                {
-                    foreach (XElement enode in GetChildNodesFromXElement(node))
-                    {
-                        result.Add(enode);
-                    }
-                }
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Gets a sub element which may appear 0 or 1 times (2 or more times throws exception)
-        /// </summary>
-        /// <returns>The parent element</returns>
-        private XElement GetSingleChildNodeFromXElement(XElement parent, string xname)
-        {
-            var result = new List<XElement>();
-            foreach (XElement node in parent.Descendants(XName.Get(xname)))
-            {
-                if (node.Parent == parent)
-                    result.Add(node);
-            }
-            if (result.Count > 1)
-                throw new Exception("More than 1 child found");
-            else if (result.Count == 1)
-                return result[0];
-            else
-                return null;
-        }
-
-        /// <summary>
-        /// Gets the sub element values
-        /// </summary>
-        /// <returns>The parent element</returns>
-        private List<XElement> GetChildNodesFromXElement(XElement parent, string xname)
-        {
-            var result = new List<XElement>();
-            foreach (XElement node in parent.Descendants(XName.Get(xname)))
-            {
-                if (node.Parent == parent)
-                    result.Add(node);
-            }
-            return result;
-        }
-
-        /// <summary>
-        /// Gets the sub element values
-        /// </summary>
-        /// <returns>The parent element</returns>
-        private List<XElement> GetChildNodesFromXElement(XElement parent)
-        {
-            var result = new List<XElement>();
-            foreach (XElement node in parent.Descendants())
-            {
-                if (node.Parent == parent)
-                    result.Add(node);
-            }
-            return result;
-        }
-
-        /// <summary>
-        /// Gets the data element values
-        /// </summary>
-        /// <returns>The data elements</returns>
-        /// <param name="response">XML OCS Response</param>
-        private List<XElement> GetChildNodesFromData(string response, List<string> xnames)
-        {
-            List<XElement> result = new List<XElement>();
-            XDocument xdoc = XDocument.Parse(response);
-
-            foreach (XElement data in xdoc.Descendants(XName.Get("data")))
-            {
-                foreach (string xname in xnames)
-                {
-                    foreach (XElement node in GetChildNodesFromXElement(data, xname))
-                    {
-                        if (node.Parent == data)
-                            result.Add(node);
-                    }
-                }
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Gets the data element values
-        /// </summary>
-        /// <returns>The data elements</returns>
-        /// <param name="response">XML OCS Response</param>
-        private List<string> GetStringListFromDataElements(string response, string elementName)
-        {
-            List<string> result = new List<string>();
-            XDocument xdoc = XDocument.Parse(response);
-
-            foreach (XElement data in xdoc.Descendants(XName.Get("data")))
-            {
-                foreach (XElement node in data.Descendants(XName.Get(elementName)))
-                {
-                    result.Add(node.Value);
-                }
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Gets the share list from a OCS Data response
-        /// </summary>
-        /// <returns>The share list</returns>
-        /// <param name="response">XML OCS Response</param>
-        private List<Share> GetShareList(string response)
-        {
-            List<Share> shares = new List<Share>();
-            XDocument xdoc = XDocument.Parse(response);
-
-            foreach (XElement data in xdoc.Descendants(XName.Get("element")))
-            {
-                Share share = null;
-                var node = data.Element(XName.Get("share_type"));
-                if (node != null)
-                {
-                    var shareType = (Core.OcsShareType)Convert.ToInt32(node.Value);
-
-                    if (shareType == OcsShareType.Link)
-                        share = new PublicShare(shareType, data);
-                    else if (shareType ==OcsShareType.User)
-                        share = new UserShare(shareType, data);
-                    else if (shareType == OcsShareType.Group)
-                        share = new GroupShare(shareType, data);
-                    else if (shareType == OcsShareType.Remote)
-                        share = new RemoteShare(shareType, data);
-                    else
-                        share = new Share(shareType, data);
-
-                    shares.Add(share);
-                }
-            }
-
-            return shares;
-        }
-
-        /// <summary>
-        /// Checks the validity of the OCS Request. If invalid a exception is thrown
-        /// </summary>
-        /// <param name="response">OCS Response</param>
-        private void CheckOcsResponseStatus(RestResponse<OcsResponseResult> response)
-        {
-            if (response.Data != null)
-            {
-                if (response.Data.Meta.StatusCode == 100)
-                    //successful
-                    return;
-                else
-                    throw new OcsResponseException(response.Data.Meta.Message, response.Data.Meta.StatusCode, response.Data.Meta.Status, response.StatusCode);
-            }
-            else if (String.IsNullOrEmpty(response.Content))
-                throw new OcsResponseException("Missing OCS response content (" + response.StatusDescription + ")", 0, null, response.StatusCode);
-            else
-                throw new OcsResponseException("OCS failure (invalid OCS response content))", 0, null, 0);
-        }
-
-        /// <summary>
-        /// Checks the validity of the OCS Request. If invalid a exception is thrown
-        /// </summary>
-        /// <param name="response">OCS Response</param>
-        private void CheckOcsStatus(RestResponse response)
-        {
-            if (response.Content == null || response.Content == "")
-            {
-                if (response.ErrorException != null)
-                    throw new ResponseException("REST request failed", response.StatusCode, response.ErrorException, response.Content);
-                else if (response.ErrorMessage != null)
-                    throw new ResponseException(response.ErrorMessage, response.StatusCode, response.Content);
-                else
-                    throw new ResponseException("Empty response content", response.StatusCode, response.Content);
-            }
-            else
-            {
-                var ocsStatus = GetFromMeta(response.Content, "statuscode");
-                var ocsStatusText = GetFromMeta(response.Content, "status");
-                if (ocsStatus == null)
-                    throw new ResponseException("Empty OCS status or invalid response data", response.StatusCode, response.Content);
-                if (!ocsStatus.Equals("100"))
-                    throw new OcsResponseException(GetFromMeta(response.Content, "message"), int.Parse(ocsStatus), ocsStatusText, response.StatusCode);
-            }
-        }
-
-        /// <summary>
-        /// Returns a list of application attributes
-        /// </summary>
-        /// <returns>List of application attributes</returns>
-        /// <param name="response">XML OCS Response</param>
-        private List<AppAttribute> GetAttributeList(string response)
-        {
-            List<AppAttribute> result = new List<AppAttribute>();
-            XDocument xdoc = XDocument.Parse(response);
-
-            foreach (XElement data in xdoc.Descendants(XName.Get("data")))
-            {
-                foreach (XElement element in data.Descendants(XName.Get("element")))
-                {
-                    AppAttribute attr = new AppAttribute();
-
-                    var node = element.Element(XName.Get("app"));
-                    if (node != null)
-                        attr.App = node.Value;
-
-                    node = element.Element(XName.Get("key"));
-                    if (node != null)
-                        attr.Key = node.Value;
-
-                    node = element.Element(XName.Get("value"));
-                    if (node != null)
-                        attr.value = node.Value;
-
-                    result.Add(attr);
-                }
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Gets the user attributes from a OCS XML Response
-        /// </summary>
-        /// <returns>The user attributes</returns>
-        /// <param name="response">OCS XML Response</param>
-        private User GetUser(string response)
-        {
-            var user = new User();
-            XDocument xdoc = XDocument.Parse(response);
-
-            foreach (XElement data in xdoc.Descendants(XName.Get("data")))
-            {
-                var node = data.Element(XName.Get("displayname"));
-                if (node != null)
-                    user.DisplayName = node.Value;
-
-                node = data.Element(XName.Get("email"));
-                if (node != null)
-                    user.EMail = node.Value;
-
-                node = data.Element(XName.Get("enabled"));
-                if (node != null)
-                    user.Enabled = (node.Value.Equals("true") || node.Value.Equals("1")) ? true : false;
-
-                foreach (XElement element in data.Descendants(XName.Get("quota")))
-                {
-                    if (element.Parent.Name == "data") //don't find grand children which might exist under the very same name
-                    {
-                        var quota = new Quota();
-
-                        node = element.Element(XName.Get("free"));
-                        if (node != null)
-                            quota.Free = double.Parse(node.Value, CultureInfo.InvariantCulture);
-
-                        node = element.Element(XName.Get("used"));
-                        if (node != null)
-                            quota.Used = double.Parse(node.Value, CultureInfo.InvariantCulture);
-
-                        node = element.Element(XName.Get("total"));
-                        if (node != null)
-                            quota.Total = double.Parse(node.Value, CultureInfo.InvariantCulture);
-
-                        node = element.Element(XName.Get("relative"));
-                        if (node != null)
-                            quota.Relative = double.Parse(node.Value, CultureInfo.InvariantCulture);
-
-                        user.Quota = quota;
-                    }
-                }
-            }
-
-            return user;
-        }
-
-        private AppInfo GetAppInfo(string response)
-        {
-            AppInfo app = new AppInfo();
-            XDocument xdoc = XDocument.Parse(response);
-
-            foreach (XElement data in xdoc.Descendants(XName.Get("data")))
-            {
-                var node = data.Element(XName.Get("id"));
-                if (node != null)
-                    app.Id = node.Value;
-
-                node = data.Element(XName.Get("name"));
-                if (node != null)
-                    app.DisplayName = node.Value;
-
-                node = data.Element(XName.Get("description"));
-                if (node != null)
-                    app.Description = node.Value;
-
-                node = data.Element(XName.Get("licence"));
-                if (node != null)
-                    app.Licence = node.Value;
-
-                node = data.Element(XName.Get("author"));
-                if (node != null)
-                    app.Author = node.Value;
-
-                node = data.Element(XName.Get("requiremin"));
-                if (node != null)
-                    app.RequireMin = node.Value;
-
-                node = data.Element(XName.Get("shipped"));
-                if (node != null)
-                    app.Shipped = (node.Value.Equals("true")) ? true : false;
-
-                node = data.Element(XName.Get("standalone"));
-                if (node != null)
-                    app.Standalone = true;
-                else
-                    app.Standalone = false;
-
-                node = data.Element(XName.Get("default_enable"));
-                if (node != null)
-                    app.DefaultEnable = true;
-                else
-                    app.DefaultEnable = false;
-
-                node = data.Element(XName.Get("types"));
-                if (node != null)
-                    app.Types = XmlElementsToList(node);
-
-                node = data.Element(XName.Get("remote"));
-                if (node != null)
-                    app.Remote = XmlElementsToDict(node);
-
-                node = data.Element(XName.Get("documentation"));
-                if (node != null)
-                    app.Documentation = XmlElementsToDict(node);
-
-                node = data.Element(XName.Get("info"));
-                if (node != null)
-                    app.Info = XmlElementsToDict(node);
-
-                node = data.Element(XName.Get("public"));
-                if (node != null)
-                    app.Public = XmlElementsToDict(node);
-            }
-
-            return app;
-        }
-
-        /// <summary>
-        /// Returns the elements of a XML Element as a List
-        /// </summary>
-        /// <returns>The elements as list</returns>
-        /// <param name="element">XML Element</param>
-        private List<string> XmlElementsToList(XElement element)
-        {
-            List<string> result = new List<string>();
-
-            foreach (XElement node in element.Descendants(XName.Get("element")))
-            {
-                result.Add(node.Value);
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Returns the elements of a XML Element as a Dictionary
-        /// </summary>
-        /// <returns>The elements as dictionary</returns>
-        /// <param name="element">XML Element</param>
-        private Dictionary<string, string> XmlElementsToDict(XElement element)
-        {
-            Dictionary<string, string> result = new Dictionary<string, string>();
-
-            foreach (XElement node in element.Descendants())
-            {
-                result.Add(node.Name.ToString(), node.Value);
-            }
-
-            return result;
         }
         #endregion
 

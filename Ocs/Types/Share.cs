@@ -7,11 +7,11 @@ using System.Xml.Linq;
 
 namespace CompuMaster.Ocs.Types
 {
-    /// <summary>
-    /// Provides basic information of a ownCloud Share
-    /// </summary>
-    public class Share
-    {
+	/// <summary>
+	/// Provides basic information of a ownCloud Share
+	/// </summary>
+	public class Share
+	{
 		internal Share(Core.OcsShareType shareType, XElement data)
 		{
 			this.Type = shareType;
@@ -96,12 +96,17 @@ namespace CompuMaster.Ocs.Types
 			node = data.Element(XName.Get("displayname_owner"));
 			if (node != null)
 				this.AdvancedProperties.DisplaynameOwner = node.Value;
-					#endregion
+
+			node = data.Element(XName.Get("password"));
+			if (node != null)
+				this.AdvancedProperties.Password = node.Value;
+
+			#endregion
 		}
 
-			/// <summary>
-			/// The shares Id assigned by ownCloud
-			/// </summary>
+		/// <summary>
+		/// The shares Id assigned by ownCloud
+		/// </summary>
 		public int ShareId { get; set; }
 		/// <summary>
 		/// The shares type Id assigned by ownCloud
@@ -111,10 +116,10 @@ namespace CompuMaster.Ocs.Types
 		/// The path to the target file/folder
 		/// </summary>
 		public string TargetPath { get; set; }
-        /// <summary>
-        /// The permissions granted on the share
-        /// </summary>
-        public CompuMaster.Ocs.Core.OcsPermission Permissions { get; set; }
+		/// <summary>
+		/// The permissions granted on the share
+		/// </summary>
+		public CompuMaster.Ocs.Core.OcsPermission Permissions { get; set; }
 		/// <summary>
 		/// Gets or sets the shares advanced properties.
 		/// </summary>
@@ -130,16 +135,17 @@ namespace CompuMaster.Ocs.Types
 		/// Share summary
 		/// </summary>
 		/// <returns></returns>
-        public override string ToString()
-        {
+		public override string ToString()
+		{
 			return "Share ID " + this.ShareId.ToString() + " (Permission: " + this.Permissions.ToString() + ") " + this.TargetPath;
-        }
-    }
+		}
+	}
 
 	/// <summary>
 	/// Advanced share properties.
 	/// </summary>
-	public class AdvancedShareProperties {
+	public class AdvancedShareProperties
+	{
 		/// <summary>
 		/// Gets or sets the type of the item.
 		/// </summary>
@@ -215,5 +221,10 @@ namespace CompuMaster.Ocs.Types
 		/// </summary>
 		/// <value>The displayname owner.</value>
 		public string DisplaynameOwner { get; set; }
+		/// <summary>
+		/// Gets or sets the password (note: Nextcloud doesn't report password in plain text, OwnCloud doesn't provide the password at all)
+		/// </summary>
+		/// <value>The displayname owner.</value>
+		public string Password { get; set; }
 	}
 }

@@ -36,6 +36,7 @@ namespace CompuMaster.Ocs.Exceptions
 		{
 			this.OcsStatusCode = ocsStatusCode;
 			this.OcsStatusText = ocsStatusText;
+			this.HttpStatusCode = httpStatusCode;
 		}
 
 		/// <summary>

@@ -1,8 +1,9 @@
 ﻿using System.IO;
 using System.Text;
-using System.Xml;
+using CompuMaster.Ocs;
 using System.Xml.Serialization;
 using NUnit.Framework;
+using System.Collections.Generic;
 
 namespace CompuMaster.Ocs.OwnCloudSharpTests
 {
@@ -89,6 +90,101 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 </ocs>
 ");
             }
+
+        [Test]
+        public void GetSharees()
+        {
+            string ocsResult = @"<?xml version=""1.0""?>
+<ocs>
+ <meta>
+  <status>ok</status>
+  <statuscode>100</statuscode>
+  <message>OK</message>
+  <totalitems></totalitems>
+  <itemsperpage></itemsperpage>
+ </meta>
+ <data>
+  <exact>
+   <users/>
+   <groups>
+    <element>
+     <count>2</count>
+     <label>testgroup</label>
+     <value>
+      <shareType>1</shareType>
+      <shareWith>testgroup</shareWith>
+     </value>
+    </element>
+   </groups>
+   <remotes/>
+   <remote_groups/>
+   <emails/>
+  </exact>
+  <users/>
+  <groups/>
+  <remotes/>
+  <remote_groups/>
+  <emails/>
+ </data>
+</ocs>
+";
+
+            TestDeserializedData(ocsResult);
+            List<Ocs.Types.Sharee> Sharees = OcsDeserializationTools.GetShareesFromResponse(ocsResult);
+            Assert.That(Sharees.Count, Is.GreaterThan(0));
+
+            string ocsShareeResult = @"<?xml version=""1.0""?>
+<ocs>
+ <meta>
+  <status>ok</status>
+  <statuscode>100</statuscode>
+  <message>OK</message>
+  <totalitems></totalitems>
+  <itemsperpage></itemsperpage>
+ </meta>
+ <data>
+  <exact>
+   <users/>
+   <groups/>
+   <remotes/>
+  </exact>
+  <users>
+   <element>
+    <label>octestusr</label>
+    <value>
+     <shareType>0</shareType>
+     <shareWith>octestusr</shareWith>
+     <userType>0</userType>
+    </value>
+   </element>
+   <element>
+    <label>sharetest</label>
+    <value>
+     <shareType>0</shareType>
+     <shareWith>sharetest</shareWith>
+     <userType>0</userType>
+    </value>
+   </element>
+  </users>
+  <groups>
+   <element>
+    <label>testgroup</label>
+    <value>
+     <shareType>1</shareType>
+     <shareWith>testgroup</shareWith>
+    </value>
+   </element>
+  </groups>
+  <remotes/>
+ </data>
+</ocs>
+";
+            TestDeserializedData(ocsResult);
+            Sharees = OcsDeserializationTools.GetShareesFromResponse(ocsShareeResult);
+            Assert.That(Sharees.Count, Is.GreaterThan(0));
+
+        }
+
         private void TestDeserializedData(string xml)
         {
             var serializer = new XmlSerializer(typeof(CompuMaster.Ocs.Types.OcsResponseResult));
