@@ -1308,7 +1308,19 @@ namespace CompuMaster.Ocs
         /// <returns>App Attribute List</returns>
         /// <param name="app">application id</param>
         /// <param name="key">attribute key or None to retrieve all values for the given application</param>
+        [Obsolete("Use GetAppAttribute instead"), System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
         public List<AppAttribute> GetAttribute(string app = "", string key = "")
+        {
+            return this.GetAppAttribute(app, key);
+        }
+
+        /// <summary>
+        /// Returns an application attribute
+        /// </summary>
+        /// <returns>App Attribute List</returns>
+        /// <param name="app">application id</param>
+        /// <param name="key">attribute key or None to retrieve all values for the given application</param>
+        public List<AppAttribute> GetAppAttribute(string app = "", string key = "")
         {
             var path = "getattribute";
             if (!app.Equals(""))
@@ -1336,7 +1348,20 @@ namespace CompuMaster.Ocs
         /// <param name="app">application id</param>
         /// <param name="key">key of the attribute to set</param>
         /// <param name="value">value to set</param>
+        [Obsolete("Use SetAppAttribute instead"), System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
         public void SetAttribute(string app, string key, string value)
+        {
+            this.SetAppAttribute(app, key, value);
+        }
+
+        /// <summary>
+        /// Sets an application attribute
+        /// </summary>
+        /// <returns><c>true</c>, if attribute was set, <c>false</c> otherwise</returns>
+        /// <param name="app">application id</param>
+        /// <param name="key">key of the attribute to set</param>
+        /// <param name="value">value to set</param>
+        public void SetAppAttribute(string app, string key, string value)
         {
             var path = "setattribute" + "/" + app + "/" + WebUtility.UrlEncode(key);
 
@@ -1355,7 +1380,19 @@ namespace CompuMaster.Ocs
         /// <returns><c>true</c>, if attribute was deleted, <c>false</c> otherwise</returns>
         /// <param name="app">application id</param>
         /// <param name="key">key of the attribute to delete</param>
+        [Obsolete("Use DeleteAppAttribute instead"), System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
         public void DeleteAttribute(string app, string key)
+        {
+            this.DeleteAppAttribute(app, key);
+        }
+
+        /// <summary>
+        /// Deletes an application attribute
+        /// </summary>
+        /// <returns><c>true</c>, if attribute was deleted, <c>false</c> otherwise</returns>
+        /// <param name="app">application id</param>
+        /// <param name="key">key of the attribute to delete</param>
+        public void DeleteAppAttribute(string app, string key)
         {
             var path = "deleteattribute" + "/" + app + "/" + WebUtility.UrlEncode(key);
 

@@ -226,8 +226,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				#region OCS App Attribute Test Cleanup
 				if (this.GetType() != typeof(OcsApiNextCloudTest))
 				{
-					if (c.GetAttribute("calendar", "test").Count > 0)
-						c.DeleteAttribute("calendar", "test");
+					if (c.GetAppAttribute("calendar", "test").Count > 0)
+						c.DeleteAppAttribute("calendar", "test");
 				}
 				#endregion
 
@@ -1015,12 +1015,12 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// Test GetAttribute.
 		/// </summary>
 		[Test()]
-		public void GetAttribute()
+		public void GetAppAttribute()
 		{
 			if (this.GetType() == typeof(OcsApiNextCloudTest))
 				Assert.Ignore("OCS API missing at NextCloud server?!");
 
-			var result = c.GetAttribute("calendar");
+			var result = c.GetAppAttribute("calendar");
 			Assert.NotNull(result);
 		}
 
@@ -1028,17 +1028,17 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// Test SetAttribute.
 		/// </summary>
 		[Test()]
-		public void SetAttribute()
+		public void SetAppAttribute()
 		{
 			if (this.GetType() == typeof(OcsApiNextCloudTest))
 				Assert.Ignore("OCS API missing at NextCloud server?!");
 
-			c.SetAttribute("calendar", "test", "true");
+			c.SetAppAttribute("calendar", "test", "true");
 
 			List<AppAttribute> result;
 
 			//test getting full key-value-list
-			result = c.GetAttribute("calendar");
+			result = c.GetAppAttribute("calendar");
 			bool TestAttributeFound = false;
 			foreach (AppAttribute attr in result)
 			{
@@ -1053,7 +1053,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			//test getting key-only-entries
 			try
 			{
-				result = c.GetAttribute("calendar", "test");
+				result = c.GetAppAttribute("calendar", "test");
 			}
 			catch (Ocs.Exceptions.OcsResponseException)
 			{
@@ -1070,17 +1070,17 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// Test DeleteAttribute.
 		/// </summary>
 		[Test()]
-		public void DeleteAttribute()
+		public void DeleteAppAttribute()
 		{
 			if (this.GetType() == typeof(OcsApiNextCloudTest))
 				Assert.Ignore("OCS API missing at NextCloud server?!");
 
-			if (c.GetAttribute("calendar", "test").Count == 0)
-				c.SetAttribute("calendar", "test", "true");
+			if (c.GetAppAttribute("calendar", "test").Count == 0)
+				c.SetAppAttribute("calendar", "test", "true");
 
 			try
 			{
-				c.DeleteAttribute("calendar", "test");
+				c.DeleteAppAttribute("calendar", "test");
 			}
 			catch (Ocs.Exceptions.OcsResponseException)
 			{
