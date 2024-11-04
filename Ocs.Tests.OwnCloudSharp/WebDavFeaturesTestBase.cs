@@ -206,8 +206,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			c.Upload(TestSettings.testDirName + TestSettings.testFileName, payload, "text/plain");
 
 			//check test environment - root dir listing
-			Assert.Catch<ArgumentNullException>(() => { var result = c.List(null); });
-			Assert.Catch<ArgumentNullException>(() => { var result = c.List(""); });
+			Assert.Catch<ArgumentNullException>(() => { var resultDummy = c.List(null); });
+			Assert.Catch<ArgumentNullException>(() => { var resultDummy = c.List(""); });
 
 			var result = c.List ("/");
 			Assert.Greater (result.Count, 0);

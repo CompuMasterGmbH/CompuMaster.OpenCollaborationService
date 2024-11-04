@@ -86,7 +86,7 @@ jobs:
             - name: Setup .NET Core
               uses: actions/setup-dotnet@v1
               with:
-                 dotnet-version: 6.0.x
+                 dotnet-version: 8.0.x
 
             - name: Dir Listing (Win)
               if: startsWith(matrix.os, 'windows')
@@ -107,9 +107,9 @@ jobs:
               run: dotnet build --configuration=${{env.BUILD_CONFIGURATION}} --no-restore
 
             - name: Run Unit Tests (CompuMaster.Ocs.TrivialTests)
-              run: dotnet test --framework net6.0 --results-directory test-results-trivial --logger junit --configuration=${{env.BUILD_CONFIGURATION}} --no-restore --filter CompuMaster.Ocs.Test
+              run: dotnet test --framework net8.0 --results-directory test-results-trivial --logger junit --configuration=${{env.BUILD_CONFIGURATION}} --no-restore --filter CompuMaster.Ocs.Test
             - name: Run Unit Tests (CompuMaster.Ocs.OwnCloudSharpTests)
-              run: dotnet test --framework net6.0 --results-directory test-results-ocs --logger junit --configuration=${{env.BUILD_CONFIGURATION}} --no-restore --filter CompuMaster.Ocs.OwnCloudSharpTests
+              run: dotnet test --framework net8.0 --results-directory test-results-ocs --logger junit --configuration=${{env.BUILD_CONFIGURATION}} --no-restore --filter CompuMaster.Ocs.OwnCloudSharpTests
 
             - name: Dir Listing (Win) test-results-trivial (CompuMaster.Ocs.TrivialTests)
               if: startsWith(matrix.os, 'windows')
