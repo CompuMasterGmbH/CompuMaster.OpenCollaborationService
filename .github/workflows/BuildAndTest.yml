@@ -153,7 +153,7 @@ jobs:
                 report_individual_runs: true
       
             - name: Publish Unit Test Results (CompuMaster.Ocs.TrivialTests)
-              uses: actions/upload-artifact@v2
+              uses: actions/upload-artifact@v4
               if: always()
               with:
                 name: NUnit Test Results ${{ matrix.os }} (CompuMaster.Ocs.TrivialTests)
@@ -182,7 +182,7 @@ jobs:
                 report_individual_runs: true
       
             - name: Publish Unit Test Results (CompuMaster.Ocs.OwnCloudSharpTests)
-              uses: actions/upload-artifact@v2
+              uses: actions/upload-artifact@v4
               if: always()
               with:
                 name: NUnit Test Results ${{ matrix.os }} (CompuMaster.Ocs.OwnCloudSharpTests)
