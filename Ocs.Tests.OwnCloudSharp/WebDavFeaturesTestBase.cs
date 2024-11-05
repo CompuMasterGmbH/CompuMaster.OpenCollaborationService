@@ -56,9 +56,9 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test()]
 		public void TestSettings_UniqueRemoteObjectNames()
 		{
-			Assert.That(TestSettings.TestFileName(), Is.EqualTo("/CM.Ocs...WebDavFeaturesOwnCloudTest.TestSettings_UniqueRemoteObjectNames--test.txt"));
-			Assert.That(TestSettings.TestDirName(), Is.EqualTo("/CM.Ocs...WebDavFeaturesOwnCloudTest.TestSettings_UniqueRemoteObjectNames--test-folder"));
-			Assert.That(TestSettings.TestNameForRemoteTestObject("/test"), Is.EqualTo("/CM.Ocs...WebDavFeaturesOwnCloudTest.TestSettings_UniqueRemoteObjectNames--test"));
+			Assert.That(TestSettings.TestFileName(), Is.EqualTo("/CM.Ocs..." + this.GetType().Name + ".TestSettings_UniqueRemoteObjectNames--test.txt"));
+			Assert.That(TestSettings.TestDirName(), Is.EqualTo("/CM.Ocs..." + this.GetType().Name + ".TestSettings_UniqueRemoteObjectNames--test-folder"));
+			Assert.That(TestSettings.TestNameForRemoteTestObject("/test"), Is.EqualTo("/CM.Ocs..." + this.GetType().Name + ".TestSettings_UniqueRemoteObjectNames--test"));
 		}
 
 		#region Members
@@ -453,7 +453,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Timeout(45000)]
 		public void DownloadDirectoryAsZip()
 		{
-			try
+			System.Threading.Thread.Sleep(3000); //wait for remote system to be ready (recovering from stressful previous tests ;-)
+            try
 			{
                 Console.WriteLine("TestFileName: " + TestSettings.TestFileName());
                 Console.WriteLine("TestNameForRemoteTestObject: " + TestSettings.TestNameForRemoteTestObject("/zip-test"));
