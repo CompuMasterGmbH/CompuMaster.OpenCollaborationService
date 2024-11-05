@@ -79,11 +79,17 @@ namespace CompuMaster.Ocs
             this.url = url;
 
             // RestSharp initialisation
-            this.rest = new RestClient(new Uri(url + "/" + ocspath));
-            // Set the base path as the OCS API root
-            //this.rest.BaseUrl = new Uri(url + "/" + ocspath);
-            // Configure RestSharp for BasicAuth
-            this.rest.Authenticator = new HttpBasicAuthenticator(user_id, password);
+            var options = new RestClientOptions
+            {
+                // Set the base path as the OCS API root
+                //this.rest.BaseUrl = new Uri(url + "/" + ocspath);
+                BaseUrl = new Uri(url + "/" + ocspath),
+                // Configure RestSharp for BasicAuth
+                Authenticator = new RestSharp.Authenticators.HttpBasicAuthenticator(user_id, password)
+            };
+            this.rest = new RestClient(options);
+
+            // Add default parameter 
             this.rest.AddDefaultParameter("format", "xml");
             this.user_id = user_id;
 
