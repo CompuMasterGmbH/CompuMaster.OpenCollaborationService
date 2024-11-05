@@ -23,7 +23,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 	{
 		private const int MAX_PARALLEL_TEST_TASKS = 2; 
         #region Parallel Test Execution
-        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(MAX_PARALLEL_TEST_TASKS);
+        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(MAX_PARALLEL_TEST_TASKS);
 
 		[SetUp]
 		public async Task MaxParallelismSetUp()
