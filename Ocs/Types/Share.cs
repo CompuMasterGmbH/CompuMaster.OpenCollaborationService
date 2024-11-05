@@ -34,10 +34,24 @@ namespace CompuMaster.Ocs.Types
 			node = data.Element(XName.Get("expiration"));
 			if (node != null && !String.IsNullOrEmpty(node.Value))
 				this.Expiration = DateTime.Parse(node.Value);
-			#endregion
 
-			#region Advanced Properties
-			node = data.Element(XName.Get("item_type"));
+            node = data.Element(XName.Get("name"));
+            if (node != null && !String.IsNullOrEmpty(node.Value))
+                this.Name = node.Value;
+			else
+			{
+                node = data.Element(XName.Get("label"));
+                if (node != null && !String.IsNullOrEmpty(node.Value))
+                    this.Name = node.Value;
+            }
+
+            node = data.Element(XName.Get("note"));
+            if (node != null && !String.IsNullOrEmpty(node.Value))
+                this.Note = node.Value;
+            #endregion
+
+            #region Advanced Properties
+            node = data.Element(XName.Get("item_type"));
 			if (node != null)
 				this.AdvancedProperties.ItemType = node.Value;
 
@@ -97,17 +111,17 @@ namespace CompuMaster.Ocs.Types
 			if (node != null)
 				this.AdvancedProperties.DisplaynameOwner = node.Value;
 
-			node = data.Element(XName.Get("password"));
-			if (node != null)
-				this.AdvancedProperties.Password = node.Value;
+            node = data.Element(XName.Get("password"));
+            if (node != null)
+                this.AdvancedProperties.Password = node.Value;
 
-			#endregion
-		}
+            #endregion
+        }
 
-		/// <summary>
-		/// The shares Id assigned by ownCloud
-		/// </summary>
-		public int ShareId { get; set; }
+        /// <summary>
+        /// The shares Id assigned by ownCloud
+        /// </summary>
+        public int ShareId { get; set; }
 		/// <summary>
 		/// The shares type Id assigned by ownCloud
 		/// </summary>
@@ -121,21 +135,31 @@ namespace CompuMaster.Ocs.Types
 		/// </summary>
 		public CompuMaster.Ocs.Core.OcsPermission Permissions { get; set; }
 		/// <summary>
-		/// Gets or sets the shares advanced properties.
+		/// Advanced properties of share
 		/// </summary>
 		/// <value>The advanced properties.</value>
 		public AdvancedShareProperties AdvancedProperties { get; set; }
 		/// <summary>
-		/// Gets or sets the expiration date.
+		/// Expiration date.
 		/// </summary>
 		/// <value>The expiration.</value>
 		public DateTime? Expiration { get; set; }
 
-		/// <summary>
-		/// Share summary
-		/// </summary>
-		/// <returns></returns>
-		public override string ToString()
+        /// <summary>
+        /// Share note
+        /// </summary>
+        public string Note { get; set; }
+
+        /// <summary>
+        /// Share note
+        /// </summary>
+        public string Name { get; set; }
+
+        /// <summary>
+        /// Share summary
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
 		{
 			return "Share ID " + this.ShareId.ToString() + " (Permission: " + this.Permissions.ToString() + ") " + this.TargetPath;
 		}

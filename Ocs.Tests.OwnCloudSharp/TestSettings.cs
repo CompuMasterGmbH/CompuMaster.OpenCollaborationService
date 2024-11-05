@@ -9,13 +9,13 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 	public class TestSettings
 	{
 		public TestSettings(CompuMaster.Ocs.Test.SettingsBase settings, string testClassName)
-        {
+		{
 			this.Settings = settings;
 			this.OwnCloudUser = Settings.InputLine("username");
 			this.OwnCloudInstanceUrl = Settings.InputLine("server url");
 			this.OwnCloudPassword = Settings.InputLine("password");
 			this.TestClassName = testClassName;
-        }
+		}
 
 		public string TestClassName;
 
@@ -34,29 +34,37 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// </summary>
 		public string OwnCloudPassword;
 
-        private const string _testFileName = "/**--test.txt";
-        public string TestFileName([CallerMemberName] string callerName = "")
-        {
-            return GetFullContext(_testFileName, callerName);
-        }
+		private const string _testFileName = "/**--test.txt";
+		public string TestFileName([CallerMemberName] string callerName = "")
+		{
+			return GetFullContext(_testFileName, callerName);
+		}
 
-        private const string _testDirName = "/**--test-folder";
-        public string TestDirName([CallerMemberName] string callerName = "")
-        {
-            return GetFullContext(_testDirName, callerName);
-        }
+		private const string _testDirName = "/**--test-folder";
+		public string TestDirName([CallerMemberName] string callerName = "")
+		{
+			return GetFullContext(_testDirName, callerName);
+		}
 
-        private string GetFullContext(string value, string callerName)
-        {
+		public string TestNameForRemoteTestObject(string suggestedRawRemoteObjectName, [CallerMemberName] string callerName = "")
+		{
+			if (string.IsNullOrWhiteSpace(suggestedRawRemoteObjectName)) throw new ArgumentException("Value must not be null or empty", nameof(suggestedRawRemoteObjectName));
+			if (!suggestedRawRemoteObjectName.StartsWith("/")) throw new ArgumentException("Argument suggestedRawRemoteObjectName must start with root dir separator \"/\", but was " + suggestedRawRemoteObjectName, nameof(suggestedRawRemoteObjectName));
+			if (suggestedRawRemoteObjectName.Contains("**")) throw new ArgumentException("Argument suggestedRawRemoteObjectName must not contain string \"**\", but was " + suggestedRawRemoteObjectName, nameof(suggestedRawRemoteObjectName));
+			return GetFullContext("/**" + "--" + suggestedRawRemoteObjectName.Substring(1), callerName);
+		}
+
+		private string GetFullContext(string value, string callerName)
+		{
 			if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("Value must not be null or empty", nameof(value));
-            if (string.IsNullOrWhiteSpace(callerName)) throw new ArgumentException("Caller name must not be null or empty", nameof(callerName));
+			if (string.IsNullOrWhiteSpace(callerName)) throw new ArgumentException("Caller name must not be null or empty", nameof(callerName));
 			var result = value.Replace("**", this.TestClassName.Replace("CompuMaster.Ocs.OwnCloudSharpTests.", "CM.Ocs...") + "." + callerName);
 			//return $"{callerName}: {value}";
 			//return $"{GetType().FullName}.{callerName}: {value}";
 			return result;
-     }
+		}
 
-        public bool IgnoreTestEnvironment
+		public bool IgnoreTestEnvironment
 		{
 			get
 			{
@@ -65,4 +73,3 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		}
 	}
 }
-

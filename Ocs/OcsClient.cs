@@ -12,6 +12,7 @@ using CompuMaster.Ocs.Exceptions;
 using CompuMaster.Ocs.Types;
 using CompuMaster.Ocs.Core;
 using System.Linq;
+using System.Diagnostics;
 
 namespace CompuMaster.Ocs
 {
@@ -398,7 +399,7 @@ namespace CompuMaster.Ocs
         [Obsolete("Use overloaded method instead"), System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
         public void UpdateShare(int shareId, OcsPermission perms, string password, OcsBoolParam public_upload)
         {
-            UpdateShare(shareId, perms, public_upload, (DateTime?)null, password);
+            UpdateShare(shareId, perms, public_upload, (string)null, (DateTime?)null, password, (string)null);
         }
 
         /// <summary>
@@ -409,8 +410,10 @@ namespace CompuMaster.Ocs
         /// <param name="perms">(optional) update permissions</param>
         /// <param name="password">(optional) updated password for public link Share</param>
         /// <param name="public_upload">(optional) If set to <c>true</c> enables public upload for public shares</param>
-        /// <param name="expireDate">(optional) updated expiration date for the share</param>
-        public Share UpdateShare(int shareId, OcsPermission perms = OcsPermission.None, OcsBoolParam public_upload = OcsBoolParam.None, DateTime? expireDate = null, string password = null)
+        /// <param name="expireDate">(optional) An updated expiration date for the share (use DateTime.Min to reset an existing expireDate)</param>
+        /// <param name="note">(optional) A note for the share recipient</param>
+        /// <param name="name">(optional) A display name for a share</param>
+        public Share UpdateShare(int shareId, OcsPermission perms = OcsPermission.None, OcsBoolParam public_upload = OcsBoolParam.None, string name = null, DateTime? expireDate = null, string password = null, string note = null)
         {
             //if (perms == OcsPermission.None) throw new ArgumentOutOfRangeException(nameof(perms));
             if (Convert.ToInt32(perms) == 0) throw new ArgumentOutOfRangeException(nameof(perms));
@@ -418,6 +421,9 @@ namespace CompuMaster.Ocs
             if (Convert.ToInt32(perms) > Convert.ToInt32(OcsPermission.All)) throw new ArgumentOutOfRangeException(nameof(perms));
             //if ((perms == Convert.ToInt32(OcsPermission.None)) && (password == null) && (public_upload == OcsBoolParam.None))
             //    return false;
+            if (shareId == 0) throw new ArgumentNullException(nameof(shareId));
+            if (perms == OcsPermission.None && public_upload == OcsBoolParam.None && expireDate.HasValue == false && password == null && note == null)
+                throw new ArgumentException("At least one parameter must be specified for update");
 
             var request = new RestRequest(GetOcsPath(ocsServiceShare, "shares") + "/{id}", Method.Put);
             request.AddHeader("Accept", "text/xml, application/xml");
@@ -433,7 +439,18 @@ namespace CompuMaster.Ocs
                 request.AddParameter("publicUpload", "true");
             else if (public_upload == OcsBoolParam.False)
                 request.AddParameter("publicUpload", "false");
-            if (expireDate.HasValue) request.AddParameter("expireDate", expireDate.Value.ToString("yyyy-MM-dd HH:mm:ss"));
+            if (expireDate.HasValue)
+                if (expireDate.Value.Equals(DateTime.MinValue))
+                    request.AddParameter("expireDate", "");
+                else
+                    request.AddParameter("expireDate", expireDate.Value.ToString("yyyy-MM-dd HH:mm:ss"));
+            if (note != null)
+                request.AddParameter("note", note);
+            if (name != null)
+            {
+                request.AddParameter("name", name);
+                request.AddParameter("label", name);
+            }
 
             var response = rest.ExecuteAsync<OcsResponseResult>(request).Result;
             OcsDeserializationTools.CheckOcsResponseStatus(response);
@@ -486,7 +503,10 @@ namespace CompuMaster.Ocs
                 request.AddParameter("publicUpload", "true");
             else if (public_upload == OcsBoolParam.False)
                 request.AddParameter("publicUpload", "false");
-            if (expireDate.HasValue) request.AddParameter("expireDate", expireDate.Value.ToString("yyyy-MM-dd HH:mm:ss"));
+            if (expireDate.HasValue) 
+                request.AddParameter("expireDate", expireDate.Value.ToString("yyyy-MM-dd HH:mm:ss"));
+            if (note != null)
+                request.AddParameter("note", note);
 
             var response = rest.ExecuteAsync(request).Result;
 
@@ -497,10 +517,7 @@ namespace CompuMaster.Ocs
                 throw new Exception("Failed to create share");
             else if (result.Count == 1)
             {
-                // WORKAROUND for bug issue at nextcloud server, see https://github.com/nextcloud/server/issues/10178
-                return this.UpdateShare(result[0].ShareId, expireDate: expireDate.Value);
-                // return result
-                //return result[0];
+                return result[0];
             }
             else
                 throw new Exception("Share ID exists " + result.Count + " times, 1 time expected");

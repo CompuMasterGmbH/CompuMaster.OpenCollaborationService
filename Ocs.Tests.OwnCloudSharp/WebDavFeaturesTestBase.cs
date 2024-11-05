@@ -16,35 +16,36 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 	/// <remarks>
 	/// OCS API Standard: https://www.freedesktop.org/wiki/Specifications/open-collaboration-services-1.7/
 	/// </remarks>
-	[TestFixture(Category = "WebDAV" )]
-	[Parallelizable(ParallelScope.All)]
+	[TestFixture(Category = "WebDAV")]	
+	[NonParallelizable] //[Parallelizable(ParallelScope.All)] //Backend OwnCloud does not support stable parallel execution
+    [Timeout(30000)]
 	public abstract class WebDavFeaturesTestBase
 	{
-		private const int MAX_PARALLEL_TEST_TASKS = 5;
+		private const int MAX_PARALLEL_TEST_TASKS = 2; 
         #region Parallel Test Execution
         private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(MAX_PARALLEL_TEST_TASKS);
 
-        [SetUp]
-        public async Task MaxParallelismSetUp()
-        {
-            await _semaphore.WaitAsync();
-        }
+		[SetUp]
+		public async Task MaxParallelismSetUp()
+		{
+			await _semaphore.WaitAsync();
+		}
 
-        [TearDown]
-        public void MaxParallelismTearDown()
-        {
-            _semaphore.Release();
-        }
+		[TearDown]
+		public void MaxParallelismTearDown()
+		{
+			_semaphore.Release();
+		}
 
 		[OneTimeTearDown]
-        public void MaxParallelismOneTimeTearDown()
-        {
-            _semaphore.Dispose();
-        }
-        #endregion
+		public void MaxParallelismOneTimeTearDown()
+		{
+			_semaphore.Dispose();
+		}
+		#endregion
 
-        protected WebDavFeaturesTestBase(CompuMaster.Ocs.Test.SettingsBase settings)
-        {
+		protected WebDavFeaturesTestBase(CompuMaster.Ocs.Test.SettingsBase settings)
+		{
 			this.Settings = settings;
 			this.TestSettings = new CompuMaster.Ocs.OwnCloudSharpTests.TestSettings(Settings, this.GetType().FullName);
 		}
@@ -52,18 +53,19 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		protected CompuMaster.Ocs.Test.SettingsBase Settings;
 		protected CompuMaster.Ocs.OwnCloudSharpTests.TestSettings TestSettings;
 
-        [Test()]
-        public void TestSettings_UniqueRemoteObjectNames()
-        {
-            Assert.That(TestSettings.TestFileName(), Is.EqualTo("/CM.Ocs...WebDavFeaturesOwnCloudTest.TestSettings_UniqueRemoteObjectNames--test.txt"));
-            Assert.That(TestSettings.TestDirName(), Is.EqualTo("/CM.Ocs...WebDavFeaturesOwnCloudTest.TestSettings_UniqueRemoteObjectNames--test-folder"));
-        }
+		[Test()]
+		public void TestSettings_UniqueRemoteObjectNames()
+		{
+			Assert.That(TestSettings.TestFileName(), Is.EqualTo("/CM.Ocs...WebDavFeaturesOwnCloudTest.TestSettings_UniqueRemoteObjectNames--test.txt"));
+			Assert.That(TestSettings.TestDirName(), Is.EqualTo("/CM.Ocs...WebDavFeaturesOwnCloudTest.TestSettings_UniqueRemoteObjectNames--test-folder"));
+			Assert.That(TestSettings.TestNameForRemoteTestObject("/test"), Is.EqualTo("/CM.Ocs...WebDavFeaturesOwnCloudTest.TestSettings_UniqueRemoteObjectNames--test"));
+		}
 
-        #region Members
-        /// <summary>
-        /// ownCloud# instance.
-        /// </summary>
-        private OcsClient c;
+		#region Members
+		/// <summary>
+		/// ownCloud# instance.
+		/// </summary>
+		private OcsClient c;
 		/// <summary>
 		/// File upload payload data.
 		/// </summary>
@@ -99,102 +101,124 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			}
 		}
 
-		/// <summary>
+					#region DAV Test CleanUp
+	/// <summary>
 		/// Cleanup test data.
 		/// </summary>
 		[OneTimeTearDown]
 		public void Cleanup()
 		{
-			if (!TestSettings.IgnoreTestEnvironment)
-			{
-				#region DAV Test CleanUp
-				if (c.Exists(TestSettings.TestFileName()))
-					c.Delete(TestSettings.TestFileName());
-				if (c.Exists(TestSettings.TestDirName()))
-					c.Delete(TestSettings.TestDirName());
-				if (c.Exists("/copy-test"))
-				{
-					//c.Delete ("/copy-test/file.txt");
-					c.Delete("/copy-test");
-				}
-				if (c.Exists("/move-test"))
-				{
-					//c.Delete ("/move-test/file.txt");
-					c.Delete("/move-test");
-				}
-
-				if (c.Exists("/zip-test"))
-				{
-					//c.Delete ("/zip-test/file.txt");
-					c.Delete("/zip-test");
-				}
+			//if (!TestSettings.IgnoreTestEnvironment)
+			//{
+			//}
 			}
-			#endregion
-		}
+		#endregion
 		#endregion
 
 		#region DAV Tests
 		/// <summary>
 		/// Test the file upload.
 		/// </summary>
-		[Test ()]
-		public void Upload ()
+		[Test()]
+		public void Upload()
 		{
-			if (c.Exists(TestSettings.TestFileName()))
+            Console.WriteLine("TestFileName: " + TestSettings.TestFileName());
+
+            if (c.Exists(TestSettings.TestFileName()))
 				c.Delete(TestSettings.TestFileName());
-			MemoryStream payload = new MemoryStream (payloadData);
-			c.Upload (TestSettings.TestFileName(), payload, "text/plain");
-			Assert.True(true);
+
+			try
+			{
+				MemoryStream payload = new MemoryStream(payloadData);
+				c.Upload(TestSettings.TestFileName(), payload, "text/plain");
+				Assert.True(true);
+			}
+			finally
+			{
+				if (c.Exists(TestSettings.TestFileName()))
+					c.Delete(TestSettings.TestFileName());
+			}
 		}
 
 		/// <summary>
 		/// Tests if a file exists.
 		/// </summary>
-		[Test ()]
-		public void Exists() {
-			if (!c.Exists(TestSettings.TestFileName()))
+		[Test()]
+		public void Exists()
+		{
+			try
 			{
-				MemoryStream payload = new MemoryStream(payloadData);
-				c.Upload(TestSettings.TestFileName(), payload, "text/plain");
+                Console.WriteLine("TestFileName: " + TestSettings.TestFileName());
+                if (!c.Exists(TestSettings.TestFileName()))
+				{
+					MemoryStream payload = new MemoryStream(payloadData);
+					c.Upload(TestSettings.TestFileName(), payload, "text/plain");
+				}
+				Assert.True(c.Exists(TestSettings.TestFileName()));
 			}
-			Assert.True (c.Exists (TestSettings.TestFileName()));
+			finally
+			{
+				if (c.Exists(TestSettings.TestFileName()))
+					c.Delete(TestSettings.TestFileName());
+			}
 		}
 
 		/// <summary>
 		/// Tests if the file does not exist.
 		/// </summary>
-		[Test ()]
-		public void NotExists() {
-			Assert.False (c.Exists ("/this-does-not-exist.txt"));
+		[Test()]
+		public void NotExists()
+		{
+			Assert.False(c.Exists("/this-does-not-exist.txt"));
 		}
 
 		/// <summary>
 		/// Tests file download.
 		/// </summary>
-		[Test ()]
-		public void Download() {
-			if (!c.Exists(TestSettings.TestFileName()))
+		[Test()]
+		public void Download()
+		{
+			try
 			{
-				MemoryStream payload = new MemoryStream(payloadData);
-				c.Upload(TestSettings.TestFileName(), payload, "text/plain");
-			}
+                Console.WriteLine("TestFileName: " + TestSettings.TestFileName());
+                if (!c.Exists(TestSettings.TestFileName()))
+				{
+					MemoryStream payload = new MemoryStream(payloadData);
+					c.Upload(TestSettings.TestFileName(), payload, "text/plain");
+				}
 
-			var content = c.Download (TestSettings.TestFileName());
-			Assert.IsNotNull(content);
+				var content = c.Download(TestSettings.TestFileName());
+				Assert.IsNotNull(content);
+			}
+			finally
+			{
+				if (c.Exists(TestSettings.TestFileName()))
+					c.Delete(TestSettings.TestFileName());
+			}
 		}
 
 		/// <summary>
 		/// Tests file deletion.
 		/// </summary>
-		[Test ()]
-		public void Delete() {
-			if (!c.Exists(TestSettings.TestFileName()))
+		[Test()]
+		public void Delete()
+		{
+			try
 			{
-				MemoryStream payload = new MemoryStream(payloadData);
-				c.Upload(TestSettings.TestFileName(), payload, "text/plain");
+                Console.WriteLine("TestFileName: " + TestSettings.TestFileName());
+                if (!c.Exists(TestSettings.TestFileName()))
+				{
+					MemoryStream payload = new MemoryStream(payloadData);
+					c.Upload(TestSettings.TestFileName(), payload, "text/plain");
+				}
+				c.Delete(TestSettings.TestFileName());
+				Assert.True(true);
 			}
-			c.Delete (TestSettings.TestFileName());
-			Assert.True (true);
+			finally
+			{
+				if (c.Exists(TestSettings.TestFileName()))
+					c.Delete(TestSettings.TestFileName());
+			}
 		}
 
 		/// <summary>
@@ -203,14 +227,24 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test()]
 		public void CreateDirectory()
 		{
-			if (c.Exists(TestSettings.TestDirName()))
-				//cleanup before core testing
-				c.Delete(TestSettings.TestDirName());
+			try
+			{
+                Console.WriteLine("TestDirName: " + TestSettings.TestDirName());
 
-			c.CreateDirectory(TestSettings.TestDirName());
+                if (c.Exists(TestSettings.TestDirName()))
+					//cleanup before core testing
+					c.Delete(TestSettings.TestDirName());
 
-			//already exists
-			Assert.Catch(() => { c.CreateDirectory(TestSettings.TestDirName()); });
+				c.CreateDirectory(TestSettings.TestDirName());
+
+				//already exists
+				Assert.Catch(() => { c.CreateDirectory(TestSettings.TestDirName()); });
+			}
+			finally
+			{
+				if (c.Exists(TestSettings.TestDirName()))
+					c.Delete(TestSettings.TestDirName());
+			}
 		}
 
 		/// <summary>
@@ -219,58 +253,82 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test()]
 		public void DeleteDirectory()
 		{
-			if (!c.Exists(TestSettings.TestDirName()))
-				c.CreateDirectory(TestSettings.TestDirName());
+			try
+			{
+                Console.WriteLine("TestDirName: " + TestSettings.TestDirName());
+                if (!c.Exists(TestSettings.TestDirName()))
+					c.CreateDirectory(TestSettings.TestDirName());
 
-			c.Delete(TestSettings.TestDirName());
+				c.Delete(TestSettings.TestDirName());
+			}
+			finally
+			{
+				if (c.Exists(TestSettings.TestDirName()))
+					c.Delete(TestSettings.TestDirName());
+			}
 		}
 
 		/// <summary>
 		/// Tests list command.
 		/// </summary>
-		[Test ()]
-		public void List() {
-			//prepare test environment
-			MemoryStream payload = new MemoryStream(payloadData);
-			c.Upload(TestSettings.TestFileName(), payload, "text/plain");
-			if (!c.Exists(TestSettings.TestDirName()))
-				c.CreateDirectory(TestSettings.TestDirName());
-			payload = new MemoryStream(payloadData);
-			c.Upload(TestSettings.TestDirName() + TestSettings.TestFileName(), payload, "text/plain");
+		[Test()]
+		public void List()
+		{
+			try
+			{
+                Console.WriteLine("TestDirName: " + TestSettings.TestDirName());
+                Console.WriteLine("TestFileName: " + TestSettings.TestFileName());
 
-			//check test environment - root dir listing
-			Assert.Catch<ArgumentNullException>(() => { var resultDummy = c.List(null); });
-			Assert.Catch<ArgumentNullException>(() => { var resultDummy = c.List(""); });
+                //prepare test environment
+                MemoryStream payload = new MemoryStream(payloadData);
+				c.Upload(TestSettings.TestFileName(), payload, "text/plain");
+				if (!c.Exists(TestSettings.TestDirName()))
+					c.CreateDirectory(TestSettings.TestDirName());
+				payload = new MemoryStream(payloadData);
+				c.Upload(TestSettings.TestDirName() + TestSettings.TestFileName(), payload, "text/plain");
 
-			var result = c.List ("/");
-			Assert.Greater (result.Count, 0);
-			Assert.That(result[0].DirectoryName, Is.EqualTo(""));
-			Assert.NotNull(result[0].ItemName);
-			Assert.NotNull(result[0].FullPath);
-			Assert.IsNotEmpty(result[0].ItemName);
-			Assert.IsNotEmpty(result[0].FullPath);
-			
-			//check expected sub test directory
-			bool TestDirFound = false;
-			foreach (Types.ResourceInfo res in result)
-            {
-				if (res.FullPath == TestSettings.TestDirName())
+				//check test environment - root dir listing
+				Assert.Catch<ArgumentNullException>(() => { var resultDummy = c.List(null); });
+				Assert.Catch<ArgumentNullException>(() => { var resultDummy = c.List(""); });
+
+				var result = c.List("/");
+				Assert.Greater(result.Count, 0);
+				Assert.That(result[0].DirectoryName, Is.EqualTo(""));
+				Assert.NotNull(result[0].ItemName);
+				Assert.NotNull(result[0].FullPath);
+				Assert.IsNotEmpty(result[0].ItemName);
+				Assert.IsNotEmpty(result[0].FullPath);
+
+				//check expected sub test directory
+				bool TestDirFound = false;
+				foreach (Types.ResourceInfo res in result)
 				{
-					TestDirFound = true;
-					Assert.That(res.ContentType, Is.EqualTo("dav/directory"));
-					Assert.That(res.ItemName, Is.EqualTo(TestSettings.TestDirName().Substring(1)));
-					Assert.That(res.DirectoryName, Is.EqualTo(""));
+					if (res.FullPath == TestSettings.TestDirName())
+					{
+						TestDirFound = true;
+						Assert.That(res.ContentType, Is.EqualTo("dav/directory"));
+						Assert.That(res.ItemName, Is.EqualTo(TestSettings.TestDirName().Substring(1)));
+						Assert.That(res.DirectoryName, Is.EqualTo(""));
+					}
 				}
-			}
-			Assert.True(TestDirFound);
+				Assert.True(TestDirFound);
 
-			//check test environment - test dir listing
-			result = c.List(TestSettings.TestDirName());
-			Assert.That(result.Count, Is.EqualTo(1));
-			Assert.That(result[0].ItemName, Is.EqualTo(TestSettings.TestFileName().Substring(1)));
-			Assert.That(result[0].DirectoryName, Is.EqualTo(TestSettings.TestDirName()));
-			Assert.That(result[0].FullPath, Is.EqualTo(TestSettings.TestDirName() + TestSettings.TestFileName()));
-		}
+				//check test environment - test dir listing
+				result = c.List(TestSettings.TestDirName());
+				Assert.That(result.Count, Is.EqualTo(1));
+				Assert.That(result[0].ItemName, Is.EqualTo(TestSettings.TestFileName().Substring(1)));
+				Assert.That(result[0].DirectoryName, Is.EqualTo(TestSettings.TestDirName()));
+				Assert.That(result[0].FullPath, Is.EqualTo(TestSettings.TestDirName() + TestSettings.TestFileName()));
+			}
+			finally
+			{
+				if (c.Exists(TestSettings.TestFileName()))
+					c.Delete(TestSettings.TestFileName());
+                if (c.Exists(TestSettings.TestDirName()))
+                    c.Delete(TestSettings.TestDirName());
+            }
+
+        }
 
 		/// <summary>
 		/// Tests getting resource information.
@@ -278,81 +336,147 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test()]
 		public void GetResourceInfo()
 		{
-			//prepare test environment
-			MemoryStream payload = new MemoryStream(payloadData);
-			c.Upload(TestSettings.TestFileName(), payload, "text/plain");
-			if (!c.Exists(TestSettings.TestDirName()))
-				c.CreateDirectory(TestSettings.TestDirName());
-			payload = new MemoryStream(payloadData);
-			c.Upload(TestSettings.TestDirName() + TestSettings.TestFileName(), payload, "text/plain");
+			try
+			{
+                Console.WriteLine("TestDirName: " + TestSettings.TestDirName());
+                Console.WriteLine("TestFileName: " + TestSettings.TestFileName());
 
-			//check test environment
-			Assert.Catch<ArgumentNullException>(() => { var result = c.GetResourceInfo(null); });
-			Assert.Catch<ArgumentNullException>(() => { var result = c.GetResourceInfo(""); });
+                //prepare test environment
+                MemoryStream payload = new MemoryStream(payloadData);
+				c.Upload(TestSettings.TestFileName(), payload, "text/plain");
+				if (!c.Exists(TestSettings.TestDirName()))
+					c.CreateDirectory(TestSettings.TestDirName());
+				payload = new MemoryStream(payloadData);
+				c.Upload(TestSettings.TestDirName() + TestSettings.TestFileName(), payload, "text/plain");
 
-			var resInfo = c.GetResourceInfo("/");
-			Assert.NotNull(resInfo);
-			Assert.That(resInfo.FullPath, Is.EqualTo("/"));
-			Assert.That(resInfo.DirectoryName, Is.EqualTo(""));
-			Assert.That(resInfo.ItemName, Is.EqualTo(""));
+				//check test environment
+				Assert.Catch<ArgumentNullException>(() => { var result = c.GetResourceInfo(null); });
+				Assert.Catch<ArgumentNullException>(() => { var result = c.GetResourceInfo(""); });
 
-			resInfo = c.GetResourceInfo(TestSettings.TestFileName());
-			Assert.NotNull(resInfo);
-			Assert.That(resInfo.FullPath, Is.EqualTo(TestSettings.TestFileName()));
-			Assert.That(resInfo.DirectoryName, Is.EqualTo(""));
-			Assert.That(resInfo.ItemName, Is.EqualTo(TestSettings.TestFileName().Substring(1)));
+				var resInfo = c.GetResourceInfo("/");
+				Assert.NotNull(resInfo);
+				Assert.That(resInfo.FullPath, Is.EqualTo("/"));
+				Assert.That(resInfo.DirectoryName, Is.EqualTo(""));
+				Assert.That(resInfo.ItemName, Is.EqualTo(""));
 
-			resInfo = c.GetResourceInfo(TestSettings.TestDirName() + TestSettings.TestFileName());
-			Assert.NotNull(resInfo);
-			Assert.That(resInfo.FullPath, Is.EqualTo(TestSettings.TestDirName() + TestSettings.TestFileName()));
-			Assert.That(resInfo.DirectoryName, Is.EqualTo(TestSettings.TestDirName()));
-			Assert.That(resInfo.ItemName, Is.EqualTo(TestSettings.TestFileName().Substring(1)));
-		}
+				resInfo = c.GetResourceInfo(TestSettings.TestFileName());
+				Assert.NotNull(resInfo);
+				Assert.That(resInfo.FullPath, Is.EqualTo(TestSettings.TestFileName()));
+				Assert.That(resInfo.DirectoryName, Is.EqualTo(""));
+				Assert.That(resInfo.ItemName, Is.EqualTo(TestSettings.TestFileName().Substring(1)));
+
+				resInfo = c.GetResourceInfo(TestSettings.TestDirName() + TestSettings.TestFileName());
+				Assert.NotNull(resInfo);
+				Assert.That(resInfo.FullPath, Is.EqualTo(TestSettings.TestDirName() + TestSettings.TestFileName()));
+				Assert.That(resInfo.DirectoryName, Is.EqualTo(TestSettings.TestDirName()));
+				Assert.That(resInfo.ItemName, Is.EqualTo(TestSettings.TestFileName().Substring(1)));
+			}
+			finally
+			{
+				if (c.Exists(TestSettings.TestFileName()))
+					c.Delete(TestSettings.TestFileName());
+                if (c.Exists(TestSettings.TestDirName()))
+                    c.Delete(TestSettings.TestDirName());
+            }
+        }
 
 		/// <summary>
 		/// Tests copying files.
 		/// </summary>
-		[Test ()]
-		public void Copy() {
-			MemoryStream payload = new MemoryStream (payloadData);
-			c.Upload (TestSettings.TestFileName(), payload, "text/plain");
+		[Test()]
+		public void Copy()
+		{
+			try
+			{
+                Console.WriteLine("TestFileName: " + TestSettings.TestFileName());
+                Console.WriteLine("TestNameForRemoteTestObject: " + TestSettings.TestNameForRemoteTestObject("/copy-test"));
 
-			if (!c.Exists("/copy-test"))
-				c.CreateDirectory ("/copy-test");
+                MemoryStream payload = new MemoryStream(payloadData);
+				c.Upload(TestSettings.TestFileName(), payload, "text/plain");
 
-			c.Copy (TestSettings.TestFileName(), "/copy-test/file.txt");
-			Assert.True (true);
+				if (!c.Exists(TestSettings.TestNameForRemoteTestObject("/copy-test")))
+					c.CreateDirectory(TestSettings.TestNameForRemoteTestObject("/copy-test"));
+
+				c.Copy(TestSettings.TestFileName(), TestSettings.TestNameForRemoteTestObject("/copy-test/file.txt"));
+				Assert.True(true);
+			}
+			finally
+			{
+				if (c.Exists(TestSettings.TestFileName()))
+					c.Delete(TestSettings.TestFileName());
+				if (c.Exists(TestSettings.TestNameForRemoteTestObject("/copy-test")))
+				{
+					//c.Delete (TestSettings.TestNameForRemoteTestObject("/copy-test/file.txt"));
+					c.Delete(TestSettings.TestNameForRemoteTestObject("/copy-test"));
+				}
+			}
 		}
 
 		/// <summary>
 		/// Tests moving files.
 		/// </summary>
-		[Test ()]
-		public void Move() {
-			MemoryStream payload = new MemoryStream (payloadData);
-			c.Upload (TestSettings.TestFileName(), payload, "text/plain");
+		[Test()]
+		public void Move()
+		{
+			try
+			{
+                Console.WriteLine("TestFileName: " + TestSettings.TestFileName());
+                Console.WriteLine("TestNameForRemoteTestObject: " + TestSettings.TestNameForRemoteTestObject("/move-test"));
 
-			if (!c.Exists("/move-test"))
-				c.CreateDirectory ("/move-test");
+                MemoryStream payload = new MemoryStream(payloadData);
+				c.Upload(TestSettings.TestFileName(), payload, "text/plain");
 
-			c.Move (TestSettings.TestFileName(), "/move-test/file.txt");
+				if (!c.Exists(TestSettings.TestNameForRemoteTestObject("/move-test")))
+					c.CreateDirectory(TestSettings.TestNameForRemoteTestObject("/move-test"));
 
-			Assert.True (true);
+				c.Move(TestSettings.TestFileName(), TestSettings.TestNameForRemoteTestObject("/move-test/file.txt"));
+
+				Assert.True(true);
+			}
+			finally
+			{
+				if (c.Exists(TestSettings.TestFileName()))
+					c.Delete(TestSettings.TestFileName());
+				if (c.Exists(TestSettings.TestNameForRemoteTestObject("/move-test")))
+				{
+					//c.Delete (TestSettings.TestNameForRemoteTestObject("/move-test/file.txt"));
+					c.Delete(TestSettings.TestNameForRemoteTestObject("/move-test"));
+				}
+			}
 		}
 
 		/// <summary>
 		/// Tests downloading a direcotry as ZIP file.
 		/// </summary>
-		[Test ()]
-		public void DownloadDirectoryAsZip() {
-			MemoryStream payload = new MemoryStream (payloadData);
-			c.Upload (TestSettings.TestFileName(), payload, "text/plain");
+		[Test()]
+		[NUnit.Framework.NonParallelizable()]
+		[Timeout(45000)]
+		public void DownloadDirectoryAsZip()
+		{
+			try
+			{
+                Console.WriteLine("TestFileName: " + TestSettings.TestFileName());
+                Console.WriteLine("TestNameForRemoteTestObject: " + TestSettings.TestNameForRemoteTestObject("/zip-test"));
 
-			if (!c.Exists("/zip-test"))
-				c.CreateDirectory ("/zip-test");
+                MemoryStream payload = new MemoryStream(payloadData);
+				c.Upload(TestSettings.TestFileName(), payload, "text/plain");
 
-			var content = c.DownloadDirectoryAsZip ("/zip-test");
-			Assert.IsNotNull (content);
+				if (!c.Exists(TestSettings.TestNameForRemoteTestObject("/zip-test")))
+					c.CreateDirectory(TestSettings.TestNameForRemoteTestObject("/zip-test"));
+
+				var content = c.DownloadDirectoryAsZip(TestSettings.TestNameForRemoteTestObject("/zip-test"));
+				Assert.IsNotNull(content);
+			}
+			finally
+			{
+				if (c.Exists(TestSettings.TestFileName()))
+					c.Delete(TestSettings.TestFileName());
+				if (c.Exists(TestSettings.TestNameForRemoteTestObject("/zip-test")))
+				{
+					//c.Delete (TestSettings.TestNameForRemoteTestObject("/zip-test/file.txt"));
+					c.Delete(TestSettings.TestNameForRemoteTestObject("/zip-test"));
+				}
+			}
 		}
 		#endregion
 	}

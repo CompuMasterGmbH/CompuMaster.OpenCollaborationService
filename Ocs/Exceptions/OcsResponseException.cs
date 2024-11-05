@@ -34,7 +34,7 @@ namespace CompuMaster.Ocs.Exceptions
 		/// <param name="statusCode">OCS status code associated to the error.</param>
 		public OcsResponseException(string message, int ocsStatusCode, string ocsStatusText, HttpStatusCode httpStatusCode) : base(FullMessage(message, ocsStatusCode, ocsStatusText, httpStatusCode))
 		{
-			this.OcsStatusCode = ocsStatusCode;
+            this.OcsStatusCode = ocsStatusCode;
 			this.OcsStatusText = ocsStatusText;
 			this.HttpStatusCode = httpStatusCode;
 		}
@@ -53,16 +53,16 @@ namespace CompuMaster.Ocs.Exceptions
             {
 				//OCS error
 				if (!String.IsNullOrEmpty(message))
-					return "OCS-StatusCode: " + ocsStatusCode.ToString() + " (" + ocsStatusText + "), HTTP-StatusCode: " + ((int)httpStatusCode).ToString() + ", Message: " + message;
+					return "HTTP StatusCode " + httpStatusCode.ToString() + ", but OCS-StatusCode: " + ocsStatusCode.ToString() + " (" + ocsStatusText + "), HTTP-StatusCode: " + ((int)httpStatusCode).ToString() + ", Message: " + message;
 				else
-					return "OCS-StatusCode: " + ocsStatusCode.ToString() + " (" + ocsStatusText + "), HTTP-StatusCode: " + ((int)httpStatusCode).ToString();
+					return "HTTP StatusCode " + httpStatusCode.ToString() + ", but OCS -StatusCode: " + ocsStatusCode.ToString() + " (" + ocsStatusText + "), HTTP-StatusCode: " + ((int)httpStatusCode).ToString();
 			}
 			else if (httpStatusCode != 0)
 				//HTTP or network error
 				return "HTTP-Error: " + ((int)httpStatusCode).ToString() + " " + message;
 			else
 				//another unknown error
-				return message;
+				return "Uncategorized error: " + message;
 		}
 	}
 }

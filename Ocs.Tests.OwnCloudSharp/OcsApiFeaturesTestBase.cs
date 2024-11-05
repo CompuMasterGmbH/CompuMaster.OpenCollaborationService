@@ -19,11 +19,12 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 	/// OCS API Standard: https://www.freedesktop.org/wiki/Specifications/open-collaboration-services-1.7/
 	/// </remarks>
 	[TestFixture(Explicit = true, Category = "OCS Admin-API", Reason = "Manual check only since too many/unsafe administration changes")]
-	public abstract class OcsApiFeaturesTestBase
+    [Parallelizable(ParallelScope.Fixtures)] 
+    public abstract class OcsApiFeaturesTestBase
 	{
         private const int MAX_PARALLEL_TEST_TASKS = 5;
         #region Parallel Test Execution
-        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(MAX_PARALLEL_TEST_TASKS);
+        private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(MAX_PARALLEL_TEST_TASKS);
 
         [SetUp]
         public async Task MaxParallelismSetUp()
@@ -58,6 +59,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
         {
             Assert.That(TestSettings.TestFileName(), Is.EqualTo("/CM.Ocs..." + this.GetType().Name + ".TestSettings_UniqueRemoteObjectNames--test.txt"));
             Assert.That(TestSettings.TestDirName(), Is.EqualTo("/CM.Ocs..." + this.GetType().Name + ".TestSettings_UniqueRemoteObjectNames--test-folder"));
+            Assert.That(TestSettings.TestNameForRemoteTestObject("/test"), Is.EqualTo("/CM.Ocs..." + this.GetType().Name + ".TestSettings_UniqueRemoteObjectNames--test"));
         }
 
         #region Members
@@ -418,8 +420,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			Assert.That(share.Token, Is.Not.Empty);
 			Assert.That(share.Type, Is.EqualTo(Ocs.Core.OcsShareType.Link));
 			if (this.GetType() == typeof(OcsApiNextCloudTest))
-				//typically with NextCloud, following permissions are not set after share creation for a file: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Delete));
-				Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read | Ocs.Core.OcsPermission.Share));
+				//typically with NextCloud, following permissions are not set after share creation for a file: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Delete));
+				Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Share));
 			else if (this.GetType() == typeof(OcsApiOwnCloudTest))
 				//typically with OwnCloud, following permissions are not set after share creation for a file: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Delete | Ocs.Core.OcsPermission.Share));
 				Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read));
@@ -444,8 +446,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			Assert.That(share.Token, Is.Not.Empty);
 			Assert.That(share.Type, Is.EqualTo(Ocs.Core.OcsShareType.Link));
 			if (this.GetType() == typeof(OcsApiNextCloudTest))
-				//typically with NextCloud, following permissions are not set after share creation for a file: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Delete));
-				Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read | Ocs.Core.OcsPermission.Share));
+				//typically with NextCloud, following permissions are not set after share creation for a file: None));
+				Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Share | Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Delete));
 			else if (this.GetType() == typeof(OcsApiOwnCloudTest))
 				//typically with OwnCloud, following permissions are not set after share creation for a file: Ocs.Core.OcsPermission.Create | Ocs.Core.OcsPermission.Update | Ocs.Core.OcsPermission.Delete | Ocs.Core.OcsPermission.Share));
 				Assert.That(share.Permissions, Is.EqualTo(Ocs.Core.OcsPermission.Read));
@@ -573,33 +575,63 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			System.Console.WriteLine(createdShare.ToString() + " >>> " + createdShare.Url);
 
 			string ExpectedPassword2 = "test-another-C0mplex-password";
-			Share newInfo = c.UpdateShare(createdShare.ShareId, OcsPermission.None, OcsBoolParam.None, (DateTime?)null, ExpectedPassword2);
+			Share newInfo = c.UpdateShare(createdShare.ShareId, OcsPermission.None, OcsBoolParam.None, (string)null, (DateTime?)null, ExpectedPassword2);
 			Assert.That(newInfo.ShareId, Is.EqualTo(createdShare.ShareId));
 			Assert.That(newInfo.Expiration?.Date, Is.EqualTo(ExpectedExpiry.Date));
-			if (this.GetType() == typeof(OcsApiNextCloudTest))
+			Assert.That(newInfo.Name, Is.EqualTo("test UpdateShare"));
+            Assert.That(newInfo.Note, Is.Null);
+            if (this.GetType() == typeof(OcsApiNextCloudTest))
 				//NextCloud provides password information
 				Assert.That(newInfo.AdvancedProperties.Password, Is.Not.Null);
 			else
 				//OwnCloud doesn't report password information
 				Assert.That(newInfo.AdvancedProperties.Password, Is.Null);
 
-			DateTime ExpectedExpiry3 = ExpectedExpiry.AddDays(1);
+            DateTime ExpectedExpiry3 = ExpectedExpiry.AddDays(1);
 			string ExpectedPassword3 = "test-updated-C0mplex-password";
-			newInfo = c.UpdateShare(createdShare.ShareId, OcsPermission.None, OcsBoolParam.None, ExpectedExpiry3, ExpectedPassword3);
+			newInfo = c.UpdateShare(createdShare.ShareId, OcsPermission.Read, OcsBoolParam.False, "New-Test-Name", ExpectedExpiry3, ExpectedPassword3, "Test-Note");
 			Assert.That(newInfo.ShareId, Is.EqualTo(createdShare.ShareId));
 			Assert.That(newInfo.Expiration?.Date, Is.EqualTo(ExpectedExpiry3.Date));
+            Assert.That(newInfo.Name, Is.EqualTo("New-Test-Name"));
 			if (this.GetType() == typeof(OcsApiNextCloudTest))
+
+			{
 				//NextCloud provides password information
 				Assert.That(newInfo.AdvancedProperties.Password, Is.Not.Null);
-			else
+                //NextCloud supports note for share recipients
+                Assert.That(newInfo.Note, Is.EqualTo("Test-Note"));
+            }
+            else
+			{
 				//OwnCloud doesn't report password information
 				Assert.That(newInfo.AdvancedProperties.Password, Is.Null);
-		}
+                //OwnCloud doesn't support note for share recipients
+                Assert.That(newInfo.Note, Is.Null);
+			}
 
-		/// <summary>
-		/// Test DeleteShare.
-		/// </summary>
-		[Test()]
+            DateTime ExpectedExpiry4 = ExpectedExpiry.AddDays(1);
+            string ExpectedPassword4 = "test-updated-C0mplexed-password";
+            newInfo = c.UpdateShare(createdShare.ShareId, OcsPermission.Read | OcsPermission.Update, OcsBoolParam.True, (string)null, ExpectedExpiry4, ExpectedPassword4, "");
+            Assert.That(newInfo.ShareId, Is.EqualTo(createdShare.ShareId));
+            Assert.That(newInfo.Expiration?.Date, Is.EqualTo(ExpectedExpiry4.Date));
+            Assert.That(newInfo.Note, Is.Null);
+            Assert.That(newInfo.Name, Is.EqualTo("New-Test-Name"));
+            if (this.GetType() == typeof(OcsApiNextCloudTest))
+                //NextCloud provides password information
+                Assert.That(newInfo.AdvancedProperties.Password, Is.Not.Null);
+            else
+                //OwnCloud doesn't report password information
+                Assert.That(newInfo.AdvancedProperties.Password, Is.Null);
+
+            //Reset expiration date to nothing
+            newInfo = c.UpdateShare(createdShare.ShareId, expireDate: DateTime.MinValue);
+			Assert.That(newInfo.Expiration, Is.Null);
+        }
+
+        /// <summary>
+        /// Test DeleteShare.
+        /// </summary>
+        [Test()]
 		public void DeleteShare()
 		{
 			MemoryStream payload = new MemoryStream(payloadData);
