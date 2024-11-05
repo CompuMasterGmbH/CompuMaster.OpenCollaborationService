@@ -146,12 +146,12 @@ namespace CompuMaster.Ocs.Types
 		public DateTime? Expiration { get; set; }
 
         /// <summary>
-        /// Share note
+        /// Share note (only available for PublicShare aka share with link)
         /// </summary>
         public string Note { get; set; }
 
         /// <summary>
-        /// The name of the share
+        /// The name of the share (only available for PublicShare aka share with link)
         /// </summary>
         /// <remarks>If no name was specified, OwnCloud typically shows the token value as name in admin GUI</remarks>
         public string Name { get; set; }

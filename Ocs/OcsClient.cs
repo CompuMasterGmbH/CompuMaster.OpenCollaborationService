@@ -473,15 +473,15 @@ namespace CompuMaster.Ocs
         /// <summary>
         /// Share a file/folder with a user/group or as public link
         /// </summary>
-        /// <param name="path">path to the file/folder which should be shared</param>
+        /// <param name="path">Path to the file/folder which should be shared</param>
         /// <param name="shareType">0 = user; 1 = group; 3 = public link; 4 = email; 6 = federated cloud share; 7 = circle; 10 = Talk conversation</param>
         /// <param name="shareWith">user / group id / email address / circleID / conversation name with which the file should be shared</param>
         /// <param name="perms">1 = read; 2 = update; 4 = create; 8 = delete; 16 = share; 31 = all (default: 31, for public shares: 1)</param>
-        /// <param name="public_upload">allow public upload to a public shared folder</param>
-        /// <param name="password">password to protect public link Share with</param>
-        /// <param name="expireDate">set a expire date for public link shares. This argument expects a well formatted date string, e.g. ‘YYYY-MM-DD’</param>
-        /// <param name="name">a display name for a share</param>
-        /// <param name="note">Adds a note for the share recipient</param>
+        /// <param name="public_upload">Allow public upload to a public shared folder</param>
+        /// <param name="password">Password to protect public link Share with</param>
+        /// <param name="expireDate">An expire date for public link shares. This argument expects a well formatted date string, e.g. ‘YYYY-MM-DD’</param>
+        /// <param name="name">A display name for a share (only available for PublicShare aka share with link)</param>
+        /// <param name="note">Adds a note for the share recipient (only available for PublicShare aka share with link)</param>
         /// <returns>Share data containing the share ID (int) of the newly created share</returns>
         public Share CreateShare(string path, OcsShareType shareType, string shareWith, OcsPermission perms, OcsBoolParam public_upload, string password, DateTime? expireDate, string name, string note)
         {

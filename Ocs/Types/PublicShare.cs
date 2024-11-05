@@ -18,16 +18,6 @@ namespace CompuMaster.Ocs.Types
             node = data.Element(XName.Get("token"));
             if (node != null)
                 this.Token = node.Value;
-
-            node = data.Element(XName.Get("name"));
-            if (node != null)
-                this.Name = node.Value;
-            else
-            {
-                node = data.Element(XName.Get("label"));
-                if (node != null && !String.IsNullOrEmpty(node.Value))
-                    this.Name = node.Value;
-            }
         }
 
         /// <summary>
@@ -38,13 +28,6 @@ namespace CompuMaster.Ocs.Types
         /// The shares token
         /// </summary>
 		public string Token { get; set; }
-
-        //OBSOLETE: Name is now already part of Share class
-        ///// <summary>
-        ///// The name of the share
-        ///// </summary>
-        ///// <remarks>If no name was specified, OwnCloud typically shows the token value as name in admin GUI</remarks>
-        //public string Name { get; set; }
     }
 }
 
