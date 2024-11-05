@@ -5,6 +5,8 @@ using System.IO;
 
 using CompuMaster.Ocs;
 using CompuMaster.Ocs.Core;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace CompuMaster.Ocs.OwnCloudSharpTests
 {
@@ -15,22 +17,53 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 	/// OCS API Standard: https://www.freedesktop.org/wiki/Specifications/open-collaboration-services-1.7/
 	/// </remarks>
 	[TestFixture(Category = "WebDAV" )]
+	[Parallelizable(ParallelScope.All)]
 	public abstract class WebDavFeaturesTestBase
 	{
-		protected WebDavFeaturesTestBase(CompuMaster.Ocs.Test.SettingsBase settings)
+		private const int MAX_PARALLEL_TEST_TASKS = 5;
+        #region Parallel Test Execution
+        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(MAX_PARALLEL_TEST_TASKS);
+
+        [SetUp]
+        public async Task MaxParallelismSetUp()
+        {
+            await _semaphore.WaitAsync();
+        }
+
+        [TearDown]
+        public void MaxParallelismTearDown()
+        {
+            _semaphore.Release();
+        }
+
+		[OneTimeTearDown]
+        public void MaxParallelismOneTimeTearDown()
+        {
+            _semaphore.Dispose();
+        }
+        #endregion
+
+        protected WebDavFeaturesTestBase(CompuMaster.Ocs.Test.SettingsBase settings)
         {
 			this.Settings = settings;
-			this.TestSettings = new CompuMaster.Ocs.OwnCloudSharpTests.TestSettings(Settings);
+			this.TestSettings = new CompuMaster.Ocs.OwnCloudSharpTests.TestSettings(Settings, this.GetType().FullName);
 		}
 
 		protected CompuMaster.Ocs.Test.SettingsBase Settings;
 		protected CompuMaster.Ocs.OwnCloudSharpTests.TestSettings TestSettings;
 
-		#region Members
-		/// <summary>
-		/// ownCloud# instance.
-		/// </summary>
-		private OcsClient c;
+        [Test()]
+        public void TestSettings_UniqueRemoteObjectNames()
+        {
+            Assert.That(TestSettings.TestFileName(), Is.EqualTo("/CM.Ocs...WebDavFeaturesOwnCloudTest.TestSettings_UniqueRemoteObjectNames--test.txt"));
+            Assert.That(TestSettings.TestDirName(), Is.EqualTo("/CM.Ocs...WebDavFeaturesOwnCloudTest.TestSettings_UniqueRemoteObjectNames--test-folder"));
+        }
+
+        #region Members
+        /// <summary>
+        /// ownCloud# instance.
+        /// </summary>
+        private OcsClient c;
 		/// <summary>
 		/// File upload payload data.
 		/// </summary>
@@ -44,7 +77,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[OneTimeSetUp]
 		public void Init()
 		{
-			c = new OcsClient(TestSettings.ownCloudInstanceUrl, TestSettings.ownCloudUser, TestSettings.ownCloudPassword);
+			c = new OcsClient(TestSettings.OwnCloudInstanceUrl, TestSettings.OwnCloudUser, TestSettings.OwnCloudPassword);
 			payloadData = System.Text.Encoding.UTF8.GetBytes("owncloud# NUnit Payload\r\nPlease feel free to delete");
 
 			if (TestSettings.IgnoreTestEnvironment)
@@ -57,11 +90,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				}
 				catch (CompuMaster.Ocs.Exceptions.OcsResponseException ex)
 				{
-					throw new Exception("Login user \"" + TestSettings.ownCloudUser + "\" not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
+					throw new Exception("Login user \"" + TestSettings.OwnCloudUser + "\" not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
 				}
 				catch (Exception ex)
 				{
-					throw new Exception("Login failed (login user \"" + TestSettings.ownCloudUser + "\")", ex);
+					throw new Exception("Login failed (login user \"" + TestSettings.OwnCloudUser + "\")", ex);
 				}
 			}
 		}
@@ -75,10 +108,10 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			if (!TestSettings.IgnoreTestEnvironment)
 			{
 				#region DAV Test CleanUp
-				if (c.Exists(TestSettings.testFileName))
-					c.Delete(TestSettings.testFileName);
-				if (c.Exists(TestSettings.testDirName))
-					c.Delete(TestSettings.testDirName);
+				if (c.Exists(TestSettings.TestFileName()))
+					c.Delete(TestSettings.TestFileName());
+				if (c.Exists(TestSettings.TestDirName()))
+					c.Delete(TestSettings.TestDirName());
 				if (c.Exists("/copy-test"))
 				{
 					//c.Delete ("/copy-test/file.txt");
@@ -107,10 +140,10 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test ()]
 		public void Upload ()
 		{
-			if (c.Exists(TestSettings.testFileName))
-				c.Delete(TestSettings.testFileName);
+			if (c.Exists(TestSettings.TestFileName()))
+				c.Delete(TestSettings.TestFileName());
 			MemoryStream payload = new MemoryStream (payloadData);
-			c.Upload (TestSettings.testFileName, payload, "text/plain");
+			c.Upload (TestSettings.TestFileName(), payload, "text/plain");
 			Assert.True(true);
 		}
 
@@ -119,12 +152,12 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// </summary>
 		[Test ()]
 		public void Exists() {
-			if (!c.Exists(TestSettings.testFileName))
+			if (!c.Exists(TestSettings.TestFileName()))
 			{
 				MemoryStream payload = new MemoryStream(payloadData);
-				c.Upload(TestSettings.testFileName, payload, "text/plain");
+				c.Upload(TestSettings.TestFileName(), payload, "text/plain");
 			}
-			Assert.True (c.Exists (TestSettings.testFileName));
+			Assert.True (c.Exists (TestSettings.TestFileName()));
 		}
 
 		/// <summary>
@@ -140,13 +173,13 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// </summary>
 		[Test ()]
 		public void Download() {
-			if (!c.Exists(TestSettings.testFileName))
+			if (!c.Exists(TestSettings.TestFileName()))
 			{
 				MemoryStream payload = new MemoryStream(payloadData);
-				c.Upload(TestSettings.testFileName, payload, "text/plain");
+				c.Upload(TestSettings.TestFileName(), payload, "text/plain");
 			}
 
-			var content = c.Download (TestSettings.testFileName);
+			var content = c.Download (TestSettings.TestFileName());
 			Assert.IsNotNull(content);
 		}
 
@@ -155,12 +188,12 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		/// </summary>
 		[Test ()]
 		public void Delete() {
-			if (!c.Exists(TestSettings.testFileName))
+			if (!c.Exists(TestSettings.TestFileName()))
 			{
 				MemoryStream payload = new MemoryStream(payloadData);
-				c.Upload(TestSettings.testFileName, payload, "text/plain");
+				c.Upload(TestSettings.TestFileName(), payload, "text/plain");
 			}
-			c.Delete (TestSettings.testFileName);
+			c.Delete (TestSettings.TestFileName());
 			Assert.True (true);
 		}
 
@@ -170,14 +203,14 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test()]
 		public void CreateDirectory()
 		{
-			if (c.Exists(TestSettings.testDirName))
+			if (c.Exists(TestSettings.TestDirName()))
 				//cleanup before core testing
-				c.Delete(TestSettings.testDirName);
+				c.Delete(TestSettings.TestDirName());
 
-			c.CreateDirectory(TestSettings.testDirName);
+			c.CreateDirectory(TestSettings.TestDirName());
 
 			//already exists
-			Assert.Catch(() => { c.CreateDirectory(TestSettings.testDirName); });
+			Assert.Catch(() => { c.CreateDirectory(TestSettings.TestDirName()); });
 		}
 
 		/// <summary>
@@ -186,10 +219,10 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test()]
 		public void DeleteDirectory()
 		{
-			if (!c.Exists(TestSettings.testDirName))
-				c.CreateDirectory(TestSettings.testDirName);
+			if (!c.Exists(TestSettings.TestDirName()))
+				c.CreateDirectory(TestSettings.TestDirName());
 
-			c.Delete(TestSettings.testDirName);
+			c.Delete(TestSettings.TestDirName());
 		}
 
 		/// <summary>
@@ -199,11 +232,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		public void List() {
 			//prepare test environment
 			MemoryStream payload = new MemoryStream(payloadData);
-			c.Upload(TestSettings.testFileName, payload, "text/plain");
-			if (!c.Exists(TestSettings.testDirName))
-				c.CreateDirectory(TestSettings.testDirName);
+			c.Upload(TestSettings.TestFileName(), payload, "text/plain");
+			if (!c.Exists(TestSettings.TestDirName()))
+				c.CreateDirectory(TestSettings.TestDirName());
 			payload = new MemoryStream(payloadData);
-			c.Upload(TestSettings.testDirName + TestSettings.testFileName, payload, "text/plain");
+			c.Upload(TestSettings.TestDirName() + TestSettings.TestFileName(), payload, "text/plain");
 
 			//check test environment - root dir listing
 			Assert.Catch<ArgumentNullException>(() => { var resultDummy = c.List(null); });
@@ -221,22 +254,22 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			bool TestDirFound = false;
 			foreach (Types.ResourceInfo res in result)
             {
-				if (res.FullPath == TestSettings.testDirName)
+				if (res.FullPath == TestSettings.TestDirName())
 				{
 					TestDirFound = true;
 					Assert.That(res.ContentType, Is.EqualTo("dav/directory"));
-					Assert.That(res.ItemName, Is.EqualTo(TestSettings.testDirName.Substring(1)));
+					Assert.That(res.ItemName, Is.EqualTo(TestSettings.TestDirName().Substring(1)));
 					Assert.That(res.DirectoryName, Is.EqualTo(""));
 				}
 			}
 			Assert.True(TestDirFound);
 
 			//check test environment - test dir listing
-			result = c.List(TestSettings.testDirName);
+			result = c.List(TestSettings.TestDirName());
 			Assert.That(result.Count, Is.EqualTo(1));
-			Assert.That(result[0].ItemName, Is.EqualTo(TestSettings.testFileName.Substring(1)));
-			Assert.That(result[0].DirectoryName, Is.EqualTo(TestSettings.testDirName));
-			Assert.That(result[0].FullPath, Is.EqualTo(TestSettings.testDirName + TestSettings.testFileName));
+			Assert.That(result[0].ItemName, Is.EqualTo(TestSettings.TestFileName().Substring(1)));
+			Assert.That(result[0].DirectoryName, Is.EqualTo(TestSettings.TestDirName()));
+			Assert.That(result[0].FullPath, Is.EqualTo(TestSettings.TestDirName() + TestSettings.TestFileName()));
 		}
 
 		/// <summary>
@@ -247,11 +280,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			//prepare test environment
 			MemoryStream payload = new MemoryStream(payloadData);
-			c.Upload(TestSettings.testFileName, payload, "text/plain");
-			if (!c.Exists(TestSettings.testDirName))
-				c.CreateDirectory(TestSettings.testDirName);
+			c.Upload(TestSettings.TestFileName(), payload, "text/plain");
+			if (!c.Exists(TestSettings.TestDirName()))
+				c.CreateDirectory(TestSettings.TestDirName());
 			payload = new MemoryStream(payloadData);
-			c.Upload(TestSettings.testDirName + TestSettings.testFileName, payload, "text/plain");
+			c.Upload(TestSettings.TestDirName() + TestSettings.TestFileName(), payload, "text/plain");
 
 			//check test environment
 			Assert.Catch<ArgumentNullException>(() => { var result = c.GetResourceInfo(null); });
@@ -263,17 +296,17 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 			Assert.That(resInfo.DirectoryName, Is.EqualTo(""));
 			Assert.That(resInfo.ItemName, Is.EqualTo(""));
 
-			resInfo = c.GetResourceInfo(TestSettings.testFileName);
+			resInfo = c.GetResourceInfo(TestSettings.TestFileName());
 			Assert.NotNull(resInfo);
-			Assert.That(resInfo.FullPath, Is.EqualTo(TestSettings.testFileName));
+			Assert.That(resInfo.FullPath, Is.EqualTo(TestSettings.TestFileName()));
 			Assert.That(resInfo.DirectoryName, Is.EqualTo(""));
-			Assert.That(resInfo.ItemName, Is.EqualTo(TestSettings.testFileName.Substring(1)));
+			Assert.That(resInfo.ItemName, Is.EqualTo(TestSettings.TestFileName().Substring(1)));
 
-			resInfo = c.GetResourceInfo(TestSettings.testDirName + TestSettings.testFileName);
+			resInfo = c.GetResourceInfo(TestSettings.TestDirName() + TestSettings.TestFileName());
 			Assert.NotNull(resInfo);
-			Assert.That(resInfo.FullPath, Is.EqualTo(TestSettings.testDirName + TestSettings.testFileName));
-			Assert.That(resInfo.DirectoryName, Is.EqualTo(TestSettings.testDirName));
-			Assert.That(resInfo.ItemName, Is.EqualTo(TestSettings.testFileName.Substring(1)));
+			Assert.That(resInfo.FullPath, Is.EqualTo(TestSettings.TestDirName() + TestSettings.TestFileName()));
+			Assert.That(resInfo.DirectoryName, Is.EqualTo(TestSettings.TestDirName()));
+			Assert.That(resInfo.ItemName, Is.EqualTo(TestSettings.TestFileName().Substring(1)));
 		}
 
 		/// <summary>
@@ -282,12 +315,12 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test ()]
 		public void Copy() {
 			MemoryStream payload = new MemoryStream (payloadData);
-			c.Upload (TestSettings.testFileName, payload, "text/plain");
+			c.Upload (TestSettings.TestFileName(), payload, "text/plain");
 
 			if (!c.Exists("/copy-test"))
 				c.CreateDirectory ("/copy-test");
 
-			c.Copy (TestSettings.testFileName, "/copy-test/file.txt");
+			c.Copy (TestSettings.TestFileName(), "/copy-test/file.txt");
 			Assert.True (true);
 		}
 
@@ -297,12 +330,12 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test ()]
 		public void Move() {
 			MemoryStream payload = new MemoryStream (payloadData);
-			c.Upload (TestSettings.testFileName, payload, "text/plain");
+			c.Upload (TestSettings.TestFileName(), payload, "text/plain");
 
 			if (!c.Exists("/move-test"))
 				c.CreateDirectory ("/move-test");
 
-			c.Move (TestSettings.testFileName, "/move-test/file.txt");
+			c.Move (TestSettings.TestFileName(), "/move-test/file.txt");
 
 			Assert.True (true);
 		}
@@ -313,7 +346,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test ()]
 		public void DownloadDirectoryAsZip() {
 			MemoryStream payload = new MemoryStream (payloadData);
-			c.Upload (TestSettings.testFileName, payload, "text/plain");
+			c.Upload (TestSettings.TestFileName(), payload, "text/plain");
 
 			if (!c.Exists("/zip-test"))
 				c.CreateDirectory ("/zip-test");

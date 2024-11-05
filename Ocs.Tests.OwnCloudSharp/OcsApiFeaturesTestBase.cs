@@ -6,6 +6,9 @@ using System.IO;
 using CompuMaster.Ocs;
 using CompuMaster.Ocs.Core;
 using CompuMaster.Ocs.Types;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace CompuMaster.Ocs.OwnCloudSharpTests
 {
@@ -18,23 +21,50 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 	[TestFixture(Explicit = true, Category = "OCS Admin-API", Reason = "Manual check only since too many/unsafe administration changes")]
 	public abstract class OcsApiFeaturesTestBase
 	{
+        private const int MAX_PARALLEL_TEST_TASKS = 5;
+        #region Parallel Test Execution
+        private static readonly SemaphoreSlim _semaphore = new SemaphoreSlim(MAX_PARALLEL_TEST_TASKS);
+
+        [SetUp]
+        public async Task MaxParallelismSetUp()
+        {
+            await _semaphore.WaitAsync();
+        }
+
+        [TearDown]
+        public void MaxParallelismTearDown()
+        {
+            _semaphore.Release();
+        }
+
+        [OneTimeTearDown]
+        public void MaxParallelismOneTimeTearDown()
+        {
+            _semaphore.Dispose();
+        }
+        #endregion
+        
 		protected OcsApiFeaturesTestBase(CompuMaster.Ocs.Test.SettingsBase settings)
 		{
 			this.Settings = settings;
-			this.TestSettings = new CompuMaster.Ocs.OwnCloudSharpTests.TestSettings(Settings);
+			this.TestSettings = new CompuMaster.Ocs.OwnCloudSharpTests.TestSettings(Settings, this.GetType().FullName);
 		}
 
 		protected CompuMaster.Ocs.Test.SettingsBase Settings;
 		protected CompuMaster.Ocs.OwnCloudSharpTests.TestSettings TestSettings;
 
-		public const string testFileName = "/CM.Ocs.owncloud-sharp-test.txt";
-		public const string testDirName = "/CM.Ocs.owncloud-sharp-test-folder";
+        [Test()]
+        public void TestSettings_UniqueRemoteObjectNames()
+        {
+            Assert.That(TestSettings.TestFileName(), Is.EqualTo("/CM.Ocs..." + this.GetType().Name + ".TestSettings_UniqueRemoteObjectNames--test.txt"));
+            Assert.That(TestSettings.TestDirName(), Is.EqualTo("/CM.Ocs..." + this.GetType().Name + ".TestSettings_UniqueRemoteObjectNames--test-folder"));
+        }
 
-		#region Members
-		/// <summary>
-		/// ownCloud# instance.
-		/// </summary>
-		private OcsClient c;
+        #region Members
+        /// <summary>
+        /// ownCloud# instance.
+        /// </summary>
+        private OcsClient c;
 		/// <summary>
 		/// File upload payload data.
 		/// </summary>
@@ -47,8 +77,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			System.Console.WriteLine();
 			System.Console.WriteLine("## " + NUnit.Framework.TestContext.CurrentContext.Test.FullName);
-			System.Console.WriteLine("TEST ENVIRONMENT: " + TestSettings.ownCloudInstanceUrl);
-			System.Console.WriteLine("TEST USER       : " + TestSettings.ownCloudUser);
+			System.Console.WriteLine("TEST ENVIRONMENT: " + TestSettings.OwnCloudInstanceUrl);
+			System.Console.WriteLine("TEST USER       : " + TestSettings.OwnCloudUser);
 		}
 
 		/// <summary>
@@ -59,13 +89,13 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		{
 			System.Console.WriteLine();
 			System.Console.WriteLine("# INIT: " + NUnit.Framework.TestContext.CurrentContext.Test.ClassName);
-			System.Console.WriteLine("TEST ENVIRONMENT: " + TestSettings.ownCloudInstanceUrl);
-			System.Console.WriteLine("TEST USER: " + TestSettings.ownCloudUser);
+			System.Console.WriteLine("TEST ENVIRONMENT: " + TestSettings.OwnCloudInstanceUrl);
+			System.Console.WriteLine("TEST USER: " + TestSettings.OwnCloudUser);
 
-			c = new OcsClient(TestSettings.ownCloudInstanceUrl, TestSettings.ownCloudUser, TestSettings.ownCloudPassword);
+			c = new OcsClient(TestSettings.OwnCloudInstanceUrl, TestSettings.OwnCloudUser, TestSettings.OwnCloudPassword);
 			payloadData = System.Text.Encoding.UTF8.GetBytes("owncloud# NUnit Payload\r\nPlease feel free to delete");
 
-			if (TestSettings.ownCloudInstanceUrl == null || TestSettings.ownCloudUser == null)
+			if (TestSettings.OwnCloudInstanceUrl == null || TestSettings.OwnCloudUser == null)
 				Assert.Ignore("No login credentials assigned for unit tests");
 			else
 			{
@@ -75,11 +105,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				}
 				catch (CompuMaster.Ocs.Exceptions.OcsResponseException ex)
 				{
-					throw new Exception("Login user \"" + TestSettings.ownCloudUser + "\" not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
+					throw new Exception("Login user \"" + TestSettings.OwnCloudUser + "\" not authorized for root directory access: (status code: " + ex.OcsStatusCode + ")", ex);
 				}
 				catch (Exception ex)
 				{
-					throw new Exception("Login failed (login user \"" + TestSettings.ownCloudUser + "\")", ex);
+					throw new Exception("Login failed (login user \"" + TestSettings.OwnCloudUser + "\")", ex);
 				}
 
 				try
@@ -199,7 +229,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				#region OCS User Test cleanup
 				if (c.UserExists("octestusr1"))
 				{
-					var c1 = new OcsClient(TestSettings.ownCloudInstanceUrl, "octestusr1", "octestpwd-C0mplex");
+					var c1 = new OcsClient(TestSettings.OwnCloudInstanceUrl, "octestusr1", "octestpwd-C0mplex");
 					var shares = c1.GetShares("");
 					foreach (var share in shares)
 						c1.DeleteShare(share.ShareId);
@@ -207,7 +237,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				}
 				if (c.UserExists("octestusr"))
 				{
-					var c2 = new OcsClient(TestSettings.ownCloudInstanceUrl, "octestusr", "octestpwd-C0mplex");
+					var c2 = new OcsClient(TestSettings.OwnCloudInstanceUrl, "octestusr", "octestpwd-C0mplex");
 					var shares = c2.GetShares("");
 					foreach (var share in shares)
 						c2.DeleteShare(share.ShareId);
@@ -215,7 +245,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				}
 				if (c.UserExists("octestusr-subadmin"))
 				{
-					var c2 = new OcsClient(TestSettings.ownCloudInstanceUrl, "octestusr-subadmin", "test-octestusr-subadmin");
+					var c2 = new OcsClient(TestSettings.OwnCloudInstanceUrl, "octestusr-subadmin", "test-octestusr-subadmin");
 					var shares = c2.GetShares("");
 					foreach (var share in shares)
 						c2.DeleteShare(share.ShareId);
@@ -232,7 +262,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				#endregion
 
 				#region General CleanUp
-				var c3 = new OcsClient(TestSettings.ownCloudInstanceUrl, "sharetest", "testCryptic123!");
+				var c3 = new OcsClient(TestSettings.OwnCloudInstanceUrl, "sharetest", "testCryptic123!");
 				var c3shares = c3.GetShares("");
 				foreach (var share in c3shares)
 					c3.DeleteShare(share.ShareId);
@@ -725,7 +755,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 				c.DeleteUser(username);
 			c.CreateUser(username, password);
 
-			var c1 = new OcsClient(TestSettings.ownCloudInstanceUrl, username, password);
+			var c1 = new OcsClient(TestSettings.OwnCloudInstanceUrl, username, password);
 			var shares = c1.GetShares();
 			//Assert.Greater(shares.Count, 0); //as long as it's not implemented, there won't be any shares
 			foreach (var share in shares)
@@ -849,7 +879,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 		[Test()]
 		public void IsUserNotInGroup()
 		{
-			Assert.False(c.IsUserInGroup(TestSettings.ownCloudUser, "testgroup"));
+			Assert.False(c.IsUserInGroup(TestSettings.OwnCloudUser, "testgroup"));
 		}
 
 		/// <summary>
