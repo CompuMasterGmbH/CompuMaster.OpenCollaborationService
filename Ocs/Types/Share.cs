@@ -151,8 +151,9 @@ namespace CompuMaster.Ocs.Types
         public string Note { get; set; }
 
         /// <summary>
-        /// Share note
+        /// The name of the share
         /// </summary>
+        /// <remarks>If no name was specified, OwnCloud typically shows the token value as name in admin GUI</remarks>
         public string Name { get; set; }
 
         /// <summary>

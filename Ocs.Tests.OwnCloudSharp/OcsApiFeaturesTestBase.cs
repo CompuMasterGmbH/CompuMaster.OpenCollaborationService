@@ -53,6 +53,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
 
 		protected CompuMaster.Ocs.Test.SettingsBase Settings;
 		protected CompuMaster.Ocs.OwnCloudSharpTests.TestSettings TestSettings;
+		protected User TestUserShareRecipient;
 
         [Test()]
         public void TestSettings_UniqueRemoteObjectNames()
@@ -626,6 +627,52 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
             //Reset expiration date to nothing
             newInfo = c.UpdateShare(createdShare.ShareId, expireDate: DateTime.MinValue);
 			Assert.That(newInfo.Expiration, Is.Null);
+        }
+
+       /// <summary>
+        /// Test CreateShare
+        /// </summary>
+        [Test()]
+		public void CreateShare()
+		{
+			try
+			{
+				MemoryStream payload = new MemoryStream(payloadData);
+				if (c.Exists("/share-create-test.txt"))
+					c.Delete("/share-create-test.txt");
+				c.Upload("/share-create-test.txt", payload, "text/plain");
+
+				PublicShare share = c.CreateShareWithLink("/share-create-test.txt", OcsPermission.All, OcsBoolParam.False, "test CreateShare", DateTime.Now.AddDays(1), "test-with-C0mplex-password");
+				Assert.Multiple(() =>
+				{
+					Assert.That(share.ShareId, Is.Not.Zero);
+					Assert.That(share.TargetPath, Is.EqualTo("/share-create-test.txt"));
+					Assert.That(share.Expiration, Is.Not.Null);
+					Assert.That(share.Name, Is.EqualTo("test CreateShare"));
+				});
+				c.DeleteShare(share.ShareId);
+
+				Share userShare = c.CreateShare("/share-create-test.txt", OcsShareType.User, "sharetest", OcsPermission.All, OcsBoolParam.False, (string)null, DateTime.Now.AddDays(1), "test CreateShare", "Note-for-recipient");
+				Assert.Multiple(() =>
+				{
+					Assert.That(userShare.ShareId, Is.Not.Zero);
+					Assert.That(userShare.TargetPath, Is.EqualTo("/share-create-test.txt"));
+					Assert.That(userShare.Expiration, Is.Not.Null);
+                    //NOT SUPPORTED BY Share (only by PublicShare)
+                    //Assert.That(userShare.Name, Is.EqualTo("test CreateShare"));
+                    //if (this.GetType() == typeof(OcsApiNextCloudTest))
+                    //	//NextCloud supports notes for share recipients
+                    //	Assert.That(userShare.Name, Is.EqualTo("Note-for-recipient"));
+                    //else
+                    //	//OwnCloud doesn't suppport notes for share recipients
+                    //	Assert.That(userShare.Name, Is.Null);
+                });
+				c.DeleteShare(userShare.ShareId);
+			}
+			finally
+			{
+				c.Delete("/share-create-test.txt");
+			}
         }
 
         /// <summary>
