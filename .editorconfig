@@ -1,0 +1,13 @@
+﻿root = true
+
+[*]
+charset = utf-8-bom
+end_of_line = crlf
+insert_final_newline = true
+
+[*.{vb,cs,vbproj,csproj,sln,props,targets,config,xml,resx,md,ps1,cmd,txt,json,yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[*.{vb,cs}]
+indent_size = 4
