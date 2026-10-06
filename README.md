@@ -12,6 +12,26 @@ Access and manage OwnCloud and NextCloud servers through WebDAV and the OwnCloud
 * OCS NextCloud API: https://docs.nextcloud.com/server/latest/developer_manual/client_apis/OCS/index.html#
 * OCS OwnCloud API: https://doc.owncloud.com/server/latest/developer_manual/core/apis/ocs-share-api.html
 
+## CompuMaster.Dms ecosystem
+
+These separately versioned repositories form the CompuMaster.Dms ecosystem; they are not Git submodules. Repository names, local directory names, and NuGet package IDs can differ.
+
+| Component | Repository | Responsibility |
+|---|---|---|
+| CompuMaster.Dms | [CompuMaster.Dms](https://github.com/CompuMasterGmbH/CompuMaster.Dms) | Provider-independent DMS workflows, provider adapters, and BrowserUI. |
+| CompuMaster.Ocs | [CompuMaster.OpenCollaborationService](https://github.com/CompuMasterGmbH/CompuMaster.OpenCollaborationService) | ownCloud/Nextcloud OCS protocol, sharing, and account/group operations. |
+| CompuMaster.Scopevisio.OpenApi | [CompuMaster.Scopevisio.OpenApi](https://github.com/CompuMasterGmbH/CompuMaster.Scopevisio.OpenApi) | Scopevisio OpenScope REST API and authorization. |
+| CompuMaster.Scopevisio.Teamwork | [CompuMaster.Scopevisio.Teamwork](https://github.com/CompuMasterGmbH/CompuMaster.Scopevisio.Teamwork) | Teamwork integration connecting OpenScope authorization with CenterDevice clients. |
+| CompuMaster.CenterDevice | [CompuMaster.CenterDevice.IO](https://github.com/CompuMasterGmbH/CompuMaster.CenterDevice.IO) | CenterDevice REST and file-system SDK; the DMS package dependency is CompuMaster.CenterDevice.Rest. |
+
+DMS uses WebDAV for ownCloud/Nextcloud file operations and OCS for supported sharing operations. Teamwork builds on OpenScope and CenterDevice clients. Actual package versions and optional source references are defined by the project files on the branch being tested; an unmerged upstream change is not automatically available in DMS.
+
+For cross-repository work, evaluate the affected libraries before adding a DMS-only workaround. Keep reusable protocol, authentication, transport, and SDK behavior in its owning library, while DMS retains the common workflow/capability model and UI mapping. Preserve standalone library consumers, synchronous APIs, identity semantics, and existing defaults.
+
+Track each upstream change in an issue in its owning repository, link its implementing PR there, and reference that issue as a dependency in the affected DMS issue. Keep reciprocal links, exact commit/package versions, integration order, and verification status current. Distinguish implemented, tested, merged, published, and consumed states; do not close a dependency merely because an upstream branch is green.
+
+Shared remote test systems require coordinated exclusive access across repositories and local sessions, including setup and cleanup. Identically named GitHub Actions concurrency groups in different repositories do not provide a shared lock. See [AGENTS.md](AGENTS.md) for working rules.
+
 Project status
 ==============
 
