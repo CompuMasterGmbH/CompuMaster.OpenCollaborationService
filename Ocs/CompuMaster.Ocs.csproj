@@ -2,10 +2,10 @@
 
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0;net48;net8.0</TargetFrameworks>
-    <Version>2024.11.05.100</Version>
+    <Version>2026.10.07.0</Version>
     <Authors>compumaster,Jochen Wezel,bnoffer</Authors>
     <Company>CompuMaster GmbH</Company>
-    <Copyright>Bastian Noffer, ZaferGokhan, 2022-2024 CompuMaster GmbH</Copyright>
+    <Copyright>Bastian Noffer, ZaferGokhan, 2022-2026 CompuMaster GmbH</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageIcon>logo_64x64.png</PackageIcon>
     <PackageIconUrl />
