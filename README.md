@@ -83,6 +83,14 @@ Sample Code
         }
 ```
 
+### Native DAV chunk uploads
+
+`CompuMaster.Ocs.Core.DavChunkUploadClient` adds asynchronous native ownCloud/Nextcloud chunk uploads using a caller-owned, authenticated `IWebDavClient` and the authenticated user's `/remote.php/dav/uploads/{protocolUserId}/` namespace. Call `IsSupportedAsync` before selecting this workflow; authentication and permission failures remain errors rather than being treated as missing support.
+
+`UploadAsync` streams ordered chunks, passes the total file length and optional UTC modification time, and waits for the final server-side assembly. The source stream remains owned by the caller. The client removes and verifies only its unique upload session on success, failure and cancellation. An interrupted final assembly is reported rather than automatically replayed.
+
+This is a server extension, not a generic WebDAV capability. Unsupported servers and empty files continue to use ordinary PUT, whose client, server and proxy timeouts must accommodate the complete upload. Chunk uploads do not imply cross-session resume or support for ownCloud Infinite Scale's other upload protocols.
+
 ### WebDAV access
 
 ```C#
