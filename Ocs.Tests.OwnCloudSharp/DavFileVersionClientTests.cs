@@ -195,6 +195,50 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
         }
 
         [Test]
+        public void StaleSelectedFileIsRejectedEvenWhenHistoryIsEmpty()
+        {
+            var wire = new Wire { Empty = true };
+            using (var http = new HttpClient(wire))
+            using (var dav = new WebDavClient(http))
+            {
+                var client = new DavFileVersionClient(dav, Root, DavFileVersionProtocol.Nextcloud, "protocol id");
+                Assert.Throws<InvalidOperationException>(() => client.ListVersions(FileUri, "old-file-id"));
+                Assert.That(wire.Requests.Count, Is.EqualTo(1));
+            }
+        }
+
+        [TestCase(401), TestCase(403), TestCase(404), TestCase(500)]
+        public void FailedHistoricalGetDisposesResponseAndPreservesOriginalStatus(int status)
+        {
+            var wire = new Wire { DownloadStatus = status };
+            using (var http = new HttpClient(wire))
+            using (var dav = new WebDavClient(http))
+            using (var output = new MemoryStream())
+            {
+                var client = new DavFileVersionClient(dav, Root, DavFileVersionProtocol.Nextcloud, "protocol id");
+                var error = Assert.Throws<ResponseException>(() => client.DownloadVersion(client.ListVersions(FileUri)[0], output));
+                Assert.That((int)error.HttpStatusCode, Is.EqualTo(status));
+                Assert.That(wire.ResponseStream.Disposed, Is.True);
+                Assert.That(output.Length, Is.Zero);
+                Assert.That(output.CanWrite, Is.True);
+            }
+        }
+
+        [TestCase(1, 403), TestCase(2, 412), TestCase(3, 500)]
+        public void RestoreFailuresRetainStatusAndAreNeverReplayed(int protocol, int status)
+        {
+            var wire = new Wire { Protocol = (DavFileVersionProtocol)protocol, MutationStatus = status };
+            using (var http = new HttpClient(wire))
+            using (var dav = new WebDavClient(http))
+            {
+                var client = new DavFileVersionClient(dav, Root, wire.Protocol, "protocol id");
+                var error = Assert.Throws<ResponseException>(() => client.RestoreVersion(client.ListVersions(FileUri)[0]));
+                Assert.That((int)error.HttpStatusCode, Is.EqualTo(status));
+                Assert.That(wire.Requests.Count(r => r.Method == "MOVE" || r.Method == "COPY"), Is.EqualTo(1));
+            }
+        }
+
+        [Test]
         public void PreCancelledCallsDoNotSendRequests()
         {
             var wire = new Wire();
@@ -216,7 +260,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
         {
             internal DavFileVersionProtocol Protocol = DavFileVersionProtocol.Nextcloud;
             internal string FileId = "space!file-id", BadHref;
-            internal int IdentityStatus = 207, ListStatus = 207, MutationStatus = 204;
+            internal int IdentityStatus = 207, ListStatus = 207, MutationStatus = 204, DownloadStatus = 200;
             internal bool Empty, LargeContent;
             internal readonly List<Request> Requests = new List<Request>();
             internal TrackedStream ResponseStream;
@@ -235,7 +279,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
                 if (request.Method == HttpMethod.Get)
                 {
                     ResponseStream = new TrackedStream(LargeContent ? new byte[200000] : new byte[] { 4, 9, 2 });
-                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(ResponseStream) });
+                    return Task.FromResult(new HttpResponseMessage((HttpStatusCode)DownloadStatus) { Content = new StreamContent(ResponseStream) });
                 }
                 return Task.FromResult(new HttpResponseMessage((HttpStatusCode)MutationStatus));
             }

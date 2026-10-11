@@ -50,17 +50,20 @@ namespace CompuMaster.Ocs.Core
 
         /// <summary>Lists the available historical versions of the selected current file.</summary>
         /// <param name="file">The current-file URI within this DAV root.</param>
+        /// <param name="expectedFileId">The optional previously observed file ID; a replaced file is rejected even when history is empty.</param>
         /// <returns>Historical versions with their stable file/version IDs; an empty list means no retained versions.</returns>
         /// <exception cref="ResponseException">The file, namespace or permissions prevent listing.</exception>
         /// <exception cref="InvalidDataException">The server omits file identity or returns a malformed version response.</exception>
-        public IReadOnlyList<DavFileVersion> ListVersions(Uri file) => ListVersionsAsync(file).GetAwaiter().GetResult();
+        public IReadOnlyList<DavFileVersion> ListVersions(Uri file, string expectedFileId = null) => ListVersionsAsync(file, expectedFileId: expectedFileId).GetAwaiter().GetResult();
 
         /// <inheritdoc cref="ListVersions"/>
         /// <param name="file">The current-file URI within this DAV root.</param>
         /// <param name="cancellationToken">Cancels identity resolution and listing.</param>
-        public async Task<IReadOnlyList<DavFileVersion>> ListVersionsAsync(Uri file, CancellationToken cancellationToken = default(CancellationToken))
+        /// <param name="expectedFileId">The optional previously observed file ID.</param>
+        public async Task<IReadOnlyList<DavFileVersion>> ListVersionsAsync(Uri file, CancellationToken cancellationToken = default(CancellationToken), string expectedFileId = null)
         {
             var identity = await FileIdentity(file, cancellationToken).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(expectedFileId) && identity.Id != expectedFileId) throw new InvalidOperationException("The selected file identity changed before listing.");
             var root = VersionsRoot(identity.Id);
             var response = await transport.Propfind(root, new PropfindParameters {
                 ApplyTo = ApplyTo.Propfind.ResourceAndChildren, CancellationToken = cancellationToken,
@@ -179,7 +182,8 @@ namespace CompuMaster.Ocs.Core
                 CustomProperties = new[] { Oc + "fileid", Oc + "id", Dav + "resourcetype", Dav + "getetag" }
             }).ConfigureAwait(false);
             Check(response, "Current file identity lookup failed.");
-            var item = response.Resources.SingleOrDefault();
+            if (response.Resources.Count != 1) throw new InvalidDataException("The current file is missing or ambiguous.");
+            var item = response.Resources.Single();
             if (item == null || item.IsCollection || new Uri(davRoot, item.Uri) != file)
                 throw new InvalidDataException("The current file is missing or ambiguous.");
             var id = Text(item, Oc + "fileid") ?? Text(item, Oc + "id");
