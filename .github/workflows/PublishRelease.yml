@@ -1,4 +1,4 @@
-name: Publish/Upload dotnet package on release
+﻿name: Publish/Upload dotnet package on release
 
 # PLEASE NOTE: PUBLISHING/DEPLOYMENT
 # Release is to be created manually at GitHub releases management page
@@ -24,10 +24,12 @@ env:
   BUILD_PROJECT: Ocs/CompuMaster.Ocs.csproj
   # Name of directory (e.g. "bin") containing the subdirectory (e.g. "CI_CD") with all output files (*.dll)
   BUILD_OUTPUT_BASEDIR: Ocs/bin
+  RELEASE_VERSION: ${{ github.ref_name }}
 
 
 jobs:
     publish:
+        if: github.event_name == 'release'
         runs-on: windows-latest
         #if: false # always skip job
 
@@ -41,11 +43,18 @@ jobs:
               with:
                 dotnet-version: 8.0.x
 
+            - name: Validate release version
+              shell: pwsh
+              run: |
+                if ($env:RELEASE_VERSION -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
+                    throw 'The release tag must be a numeric NuGet version without a leading v.'
+                }
+
             - name: Install dependencies
               run: dotnet restore
 
             - name: Build
-              run: dotnet build --configuration=${{env.BUILD_CONFIGURATION}} --no-restore 
+              run: dotnet build --configuration=${{env.BUILD_CONFIGURATION}} --no-restore -p:Version=${{env.RELEASE_VERSION}}
 
             - name: Pack binaries CompuMaster.OpenCollaborationServices
               run: Compress-Archive -DestinationPath bin.zip ${{env.BUILD_OUTPUT_BASEDIR}}/${{env.BUILD_CONFIGURATION}}
@@ -58,7 +67,7 @@ jobs:
                 GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Pack CompuMaster.OpenCollaborationServices
-              run: dotnet pack --no-build --configuration=${{env.BUILD_CONFIGURATION}} ${{env.BUILD_PROJECT}} --output .  
+              run: dotnet pack --no-build --configuration=${{env.BUILD_CONFIGURATION}} ${{env.BUILD_PROJECT}} --output . -p:Version=${{env.RELEASE_VERSION}}
 
             - name: PushNuget CompuMaster.OpenCollaborationServices
               run: dotnet nuget push *.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_API_KEY }} --skip-duplicate 
