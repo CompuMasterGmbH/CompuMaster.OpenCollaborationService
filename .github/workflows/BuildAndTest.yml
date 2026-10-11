@@ -23,6 +23,10 @@ on:
                 description: 'Build all targets and run only isolated result-parsing tests for metadata-only release verification; no server requests.'
                 type: boolean
                 default: false
+            cloud_versions_only:
+                description: 'Run only file-version server acceptance and isolated regressions during a coordinated exclusive cloud window.'
+                type: boolean
+                default: false
 
 env:
   # Path to the solution file relative to the root of the project
@@ -71,6 +75,7 @@ jobs:
 
         env:
           RESULTS_PATH: TestResults.xml
+          OCS_VERSION_TESTS_EXCLUSIVE: ${{ inputs.cloud_versions_only && '1' || '0' }}
           TEST_NEXTCLOUD.ADMINUSER_SERVERURL: ${{ secrets.TEST_NEXTCLOUD_ADMINUSER_SERVERURL}}
           TEST_NEXTCLOUD.ADMINUSER_USERNAME: ${{ secrets.TEST_NEXTCLOUD_ADMINUSER_USERNAME }}
           TEST_NEXTCLOUD.ADMINUSER_PASSWORD: ${{ secrets.TEST_NEXTCLOUD_ADMINUSER_PASSWORD }}
@@ -112,16 +117,16 @@ jobs:
               run: dotnet build --configuration=${{env.BUILD_CONFIGURATION}} --no-restore
 
             - name: Run Unit Tests (CompuMaster.Ocs.TrivialTests)
-              if: ${{ !inputs.isolated_only }}
+              if: ${{ !inputs.isolated_only && !inputs.cloud_versions_only }}
               run: dotnet test --framework net8.0 --results-directory test-results-trivial --logger junit --configuration=${{env.BUILD_CONFIGURATION}} --no-restore --filter CompuMaster.Ocs.Test
             - name: Run Unit Tests (CompuMaster.Ocs.OwnCloudSharpTests)
-              run: dotnet test --framework net8.0 --results-directory test-results-ocs --logger junit --configuration=${{env.BUILD_CONFIGURATION}} --no-restore --filter "${{ inputs.isolated_only && 'FullyQualifiedName~OcsResultDeserialization' || 'FullyQualifiedName~CompuMaster.Ocs.OwnCloudSharpTests' }}"
+              run: dotnet test --framework net8.0 --results-directory test-results-ocs --logger junit --configuration=${{env.BUILD_CONFIGURATION}} --no-restore --filter "${{ inputs.cloud_versions_only && 'FullyQualifiedName~DavFileVersion|FullyQualifiedName~DavChunkUploadClientTests|FullyQualifiedName~OcsResultDeserialization' || inputs.isolated_only && 'FullyQualifiedName~DavFileVersionClientTests|FullyQualifiedName~DavChunkUploadClientTests|FullyQualifiedName~OcsResultDeserialization' || 'FullyQualifiedName~CompuMaster.Ocs.OwnCloudSharpTests' }}"
 
             - name: Dir Listing (Win) test-results-trivial (CompuMaster.Ocs.TrivialTests)
-              if: (!inputs.isolated_only) && (startsWith(matrix.os, 'windows'))
+              if: (!inputs.isolated_only && !inputs.cloud_versions_only) && (startsWith(matrix.os, 'windows'))
               run: dir test-results-trivial
             - name: Dir Listing (Linux/Mac) test-results-trivial (CompuMaster.Ocs.TrivialTests)
-              if: (!inputs.isolated_only) && ((!startsWith(matrix.os, 'windows')))
+              if: (!inputs.isolated_only && !inputs.cloud_versions_only) && ((!startsWith(matrix.os, 'windows')))
               run: ls -la test-results-trivial
 
             - name: Dir Listing (Win) test-results-ocs (CompuMaster.Ocs.OwnCloudSharpTests)
@@ -138,7 +143,7 @@ jobs:
 
             - name: Unit Test Results (Linux) (CompuMaster.Ocs.TrivialTests)
               uses: EnricoMi/publish-unit-test-result-action@v2
-              if: (!inputs.isolated_only) && (always() && startsWith(matrix.os, 'ubuntu'))
+              if: (!inputs.isolated_only && !inputs.cloud_versions_only) && (always() && startsWith(matrix.os, 'ubuntu'))
               with:
                 github_token: ${{ secrets.GITHUB_TOKEN }}
                 files: "test-results-trivial/TestResults.xml"
@@ -149,7 +154,7 @@ jobs:
       
             - name: Unit Test Results (Win/Mac) (CompuMaster.Ocs.TrivialTests)
               uses: EnricoMi/publish-unit-test-result-action/composite@v2
-              if: (!inputs.isolated_only) && (always() && (!(startsWith(matrix.os, 'ubuntu'))) )
+              if: (!inputs.isolated_only && !inputs.cloud_versions_only) && (always() && (!(startsWith(matrix.os, 'ubuntu'))) )
               with:
                 github_token: ${{ secrets.GITHUB_TOKEN }}
                 files: "test-results-trivial/TestResults.xml"
@@ -160,7 +165,7 @@ jobs:
       
             - name: Publish Unit Test Results (CompuMaster.Ocs.TrivialTests)
               uses: actions/upload-artifact@v4
-              if: (!inputs.isolated_only) && (always())
+              if: (!inputs.isolated_only && !inputs.cloud_versions_only) && (always())
               with:
                 name: NUnit Test Results ${{ matrix.os }} (CompuMaster.Ocs.TrivialTests)
                 path: test-results-trivial/TestResults.xml

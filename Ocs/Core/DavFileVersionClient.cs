@@ -51,7 +51,7 @@ namespace CompuMaster.Ocs.Core
         /// <summary>Lists the available historical versions of the selected current file.</summary>
         /// <param name="file">The current-file URI within this DAV root.</param>
         /// <param name="expectedFileId">The optional previously observed file ID; a replaced file is rejected even when history is empty.</param>
-        /// <returns>Historical versions with their stable file/version IDs; an empty list means no retained versions.</returns>
+        /// <returns>Historical versions with their stable file/version IDs; an empty list means no retained historical versions. Nextcloud's synthetic current entry is excluded when current DAV modification metadata identifies it.</returns>
         /// <exception cref="ResponseException">The file, namespace or permissions prevent listing.</exception>
         /// <exception cref="InvalidDataException">The server omits file identity or returns a malformed version response.</exception>
         public IReadOnlyList<DavFileVersion> ListVersions(Uri file, string expectedFileId = null) => ListVersionsAsync(file, expectedFileId: expectedFileId).GetAwaiter().GetResult();
@@ -85,6 +85,12 @@ namespace CompuMaster.Ocs.Core
                 var versionId = Uri.UnescapeDataString(relative);
                 ValidateId(versionId);
                 if (relative.Contains("/") || !seen.Add(versionId)) throw new InvalidDataException("A version ID is nested or duplicated.");
+                // Nextcloud includes a synthetic current entry whose version GET can return 404.
+                // Its own UI recognizes this entry by the current file's DAV modification time.
+                // Keep opaque revision IDs intact and apply this rule only to Nextcloud.
+                if (protocol == DavFileVersionProtocol.Nextcloud && identity.Modified.HasValue &&
+                    resource.LastModifiedDate.HasValue && resource.LastModifiedDate.Value == identity.Modified.Value)
+                    continue;
                 result.Add(new DavFileVersion(this, file, identity.Id, versionId, resource.LastModifiedDate,
                     resource.ContentLength, resource.ContentType, resource.ETag,
                     Text(resource, protocol == DavFileVersionProtocol.Nextcloud ? Nc + "version-author" : Oc + "meta-version-edited-by"),
@@ -136,7 +142,7 @@ namespace CompuMaster.Ocs.Core
             var current = await VerifyIdentity(version, cancellationToken).ConfigureAwait(false);
             WebDavResponse response;
             if (protocol == DavFileVersionProtocol.Nextcloud)
-                response = await transport.Move(VersionUri(version), new Uri(davRoot, "versions/" + Segment(userId) + "/restore"),
+                response = await transport.Move(VersionUri(version), new Uri(davRoot, "versions/" + Segment(userId) + "/restore/target"),
                     new MoveParameters { CancellationToken = cancellationToken, Overwrite = true }).ConfigureAwait(false);
             else
             {
@@ -169,6 +175,7 @@ namespace CompuMaster.Ocs.Core
 
         private sealed class Identity
         {
+            internal DateTime? Modified;
             internal string Id;
             internal string ETag;
         }
@@ -179,7 +186,7 @@ namespace CompuMaster.Ocs.Core
             token.ThrowIfCancellationRequested();
             var response = await transport.Propfind(file, new PropfindParameters {
                 ApplyTo = ApplyTo.Propfind.ResourceOnly, CancellationToken = token, RequestType = PropfindRequestType.NamedProperties,
-                CustomProperties = new[] { Oc + "fileid", Oc + "id", Dav + "resourcetype", Dav + "getetag" }
+                CustomProperties = new[] { Oc + "fileid", Oc + "id", Dav + "resourcetype", Dav + "getetag", Dav + "getlastmodified" }
             }).ConfigureAwait(false);
             Check(response, "Current file identity lookup failed.");
             if (response.Resources.Count != 1) throw new InvalidDataException("The current file is missing or ambiguous.");
@@ -189,7 +196,7 @@ namespace CompuMaster.Ocs.Core
             var id = Text(item, Oc + "fileid") ?? Text(item, Oc + "id");
             if (string.IsNullOrEmpty(id)) throw new InvalidDataException("The server did not supply a stable file ID.");
             ValidateId(id);
-            return new Identity { Id = id, ETag = item.ETag };
+            return new Identity { Id = id, ETag = item.ETag, Modified = item.LastModifiedDate };
         }
         private async Task<Identity> VerifyIdentity(DavFileVersion version, CancellationToken token)
         {

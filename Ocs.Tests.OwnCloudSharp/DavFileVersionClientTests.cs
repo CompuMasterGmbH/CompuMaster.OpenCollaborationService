@@ -20,6 +20,28 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
         private static readonly Uri Root = new Uri("https://fixture.test:8443/prefix/remote.php/dav/");
         private static readonly Uri FileUri = new Uri(Root, "files/protocol%20id/sub/report%2B%20one.txt");
 
+        [TestCase(1, 2), TestCase(2, 3), TestCase(3, 3)]
+        public void OnlyNextcloudOmitsTheSyntheticCurrentEntry(int protocol, int expectedCount)
+        {
+            var wire = new Wire { Protocol = (DavFileVersionProtocol)protocol, IncludeCurrentVersion = true };
+            using (var http = new HttpClient(wire))
+            using (var dav = new WebDavClient(http))
+            {
+                var versions = new DavFileVersionClient(dav, Root, wire.Protocol, "protocol id").ListVersions(FileUri);
+                Assert.That(versions.Count, Is.EqualTo(expectedCount));
+                Assert.That(versions.Any(v => v.VersionId == "current-revision"), Is.EqualTo(protocol != 1));
+                Assert.That(wire.Requests.All(r => r.Method == "PROPFIND"), Is.True);
+            }
+        }
+
+        [Test]
+        public void NextcloudWithOnlyTheCurrentEntryHasNoHistoricalVersions()
+        {
+            using (var http = new HttpClient(new Wire { IncludeCurrentVersion = true, Empty = true }))
+            using (var dav = new WebDavClient(http))
+                Assert.That(new DavFileVersionClient(dav, Root, DavFileVersionProtocol.Nextcloud, "protocol id").ListVersions(FileUri), Is.Empty);
+        }
+
         [TestCase(1), TestCase(2), TestCase(3)]
         public async Task HistoryPreservesOpaqueIdentityMetadataAndHistoricalBytes(int protocol)
         {
@@ -63,7 +85,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
                 client.RestoreVersion(version);
                 var request = wire.Requests.Last();
                 Assert.That(request.Method, Is.EqualTo(method));
-                Assert.That(request.Destination, Is.EqualTo(protocol == 1 ? new Uri(Root, "versions/protocol%20id/restore").AbsoluteUri : FileUri.AbsoluteUri));
+                Assert.That(request.Destination, Is.EqualTo(protocol == 1 ? new Uri(Root, "versions/protocol%20id/restore/target").AbsoluteUri : FileUri.AbsoluteUri));
                 Assert.That(request.Overwrite, Is.EqualTo("T"));
                 if (protocol != 1) Assert.That(request.Condition, Is.EqualTo("<" + FileUri.AbsoluteUri + "> ([\"current-tag\"])"));
                 wire.FileId = "replacement-id";
@@ -264,6 +286,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
             internal bool Empty, LargeContent;
             internal readonly List<Request> Requests = new List<Request>();
             internal TrackedStream ResponseStream;
+            internal bool IncludeCurrentVersion;
             internal string VersionRoot => Root.AbsolutePath + (Protocol == DavFileVersionProtocol.Nextcloud ? "versions/protocol%20id/versions/space%21file-id/" : "meta/space%21file-id/v/");
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
             {
@@ -291,10 +314,13 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
                     new XElement(d + "propstat", new XElement(d + "prop", prop.Elements()), new XElement(d + "status", "HTTP/1.1 200 OK")));
                 var root = new XElement(d + "multistatus");
                 if (file)
-                    root.Add(response(FileUri.AbsolutePath, new XElement("properties", new XElement(oc + "fileid", FileId), new XElement(d + "getetag", "\"current-tag\""), new XElement(d + "resourcetype"))));
+                    root.Add(response(FileUri.AbsolutePath, new XElement("properties", new XElement(oc + "fileid", FileId), new XElement(d + "getetag", "\"current-tag\""), new XElement(d + "resourcetype"),
+                        IncludeCurrentVersion ? new XElement(d + "getlastmodified", "Mon, 30 Mar 2020 10:33:27 GMT") : null)));
                 else
                 {
                     root.Add(response(VersionRoot, new XElement("properties", new XElement(d + "resourcetype", new XElement(d + "collection")))));
+                    if (IncludeCurrentVersion)
+                        root.Add(response(VersionRoot + "current-revision", new XElement("properties", new XElement(d + "resourcetype"), new XElement(d + "getlastmodified", "Mon, 30 Mar 2020 10:33:27 GMT"))));
                     if (!Empty)
                     {
                         root.Add(response(BadHref == null ? VersionRoot + "opaque-revision" : (BadHref.StartsWith("http") || BadHref.StartsWith("/") ? BadHref : VersionRoot + BadHref), new XElement("properties",
