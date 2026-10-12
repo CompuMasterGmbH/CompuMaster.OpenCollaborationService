@@ -97,8 +97,16 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
                         }
                     }
                     Assert.That(selected, Is.Not.Null, "History must contain the exact original bytes.");
+                    Uri legacyFile = legacy ? new Uri(suppliedFiles, "ZZZ_UnitTests_OcsVersions/DavFileVersionLiveTests.RoundTrip.txt") : null;
+                    if (legacyFile != null)
+                    {
+                        var alias = await transport.Propfind(legacyFile, new PropfindParameters { ApplyTo = ApplyTo.Propfind.ResourceOnly,
+                            CustomProperties = new[] { XName.Get("fileid", "http://owncloud.org/ns") }, CancellationToken = timeout.Token });
+                        Check(alias, "Verify selected legacy alias");
+                        Assert.That(alias.Resources.Single().Properties.Single(p => p.Name == XName.Get("fileid", "http://owncloud.org/ns")).Value, Is.EqualTo(selected.FileId));
+                    }
                     await client.RestoreVersionAsync(selected, timeout.Token);
-                    using (var restored = await transport.GetRawFile(file, new GetFileParameters { CancellationToken = timeout.Token }))
+                    using (var restored = await transport.GetRawFile(legacyFile ?? file, new GetFileParameters { CancellationToken = timeout.Token }))
                     using (var bytes = new MemoryStream())
                     {
                         Check(restored, "Download restored current file");

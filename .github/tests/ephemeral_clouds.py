@@ -1,6 +1,7 @@
 ﻿"""Provision only disposable, loopback-bound CI clouds; no shared-server credentials."""
 import base64
 import json
+import http.client
 import os
 import secrets
 import subprocess
@@ -36,7 +37,7 @@ def ready(url, user, password):
             data = get(url, user, password)
             if data.get("ocs", {}).get("meta", {}).get("statuscode") in (100, 200):
                 return data
-        except (urllib.error.URLError, ValueError, TimeoutError):
+        except (urllib.error.URLError, ValueError, TimeoutError, ConnectionError, http.client.HTTPException):
             pass
         time.sleep(2)
     raise RuntimeError("Disposable cloud did not become ready; no shared server was contacted.")
