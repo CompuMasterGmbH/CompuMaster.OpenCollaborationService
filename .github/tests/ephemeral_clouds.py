@@ -6,6 +6,7 @@ import os
 import secrets
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -77,21 +78,32 @@ def setup():
     print("::add-mask::" + reader_password, flush=True)
     os.environ.update(NEXTCLOUD_ADMIN_USER="owner", NEXTCLOUD_ADMIN_PASSWORD=password,
                       SQLITE_DATABASE="cloud", NEXTCLOUD_TRUSTED_DOMAINS="127.0.0.1 localhost",
-                      IDM_ADMIN_PASSWORD=password, OCIS_URL="http://127.0.0.1:9200",
-                      OCIS_INSECURE="true", PROXY_TLS="false", PROXY_ENABLE_BASIC_AUTH="true",
+                      IDM_ADMIN_PASSWORD=password, OCIS_URL="https://localhost:9200",
+                      OCIS_INSECURE="true", PROXY_TLS="true", PROXY_ENABLE_BASIC_AUTH="true",
                       PROXY_HTTP_ADDR="0.0.0.0:9200", OCIS_LOG_LEVEL="error", OC_PASS=reader_password)
+    # The built-in IDP requires TLS when no TLS reverse proxy is present.
+    tls = tempfile.mkdtemp(prefix="ocs-version-tls-", dir=os.environ["RUNNER_TEMP"])
+    os.chmod(tls, 0o755)
+    cert, key = os.path.join(tls, "server.crt"), os.path.join(tls, "server.key")
+    run("openssl", "req", "-x509", "-nodes", "-newkey", "rsa:2048", "-days", "1", "-subj", "/CN=localhost",
+        "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1", "-keyout", key, "-out", cert, quiet=True)
+    os.chmod(key, 0o444)
+    run("sudo", "cp", cert, "/usr/local/share/ca-certificates/ocs-version-acceptance.crt", quiet=True)
+    run("sudo", "update-ca-certificates", quiet=True)
+    os.environ.update(PROXY_TRANSPORT_TLS_CERT="/run/ocs-test-tls/server.crt", PROXY_TRANSPORT_TLS_KEY="/run/ocs-test-tls/server.key")
+    export({"OCS_EPHEMERAL_TLS_DIRECTORY": tls})
     nc_env = sum((["-e", name] for name in ("NEXTCLOUD_ADMIN_USER", "NEXTCLOUD_ADMIN_PASSWORD", "SQLITE_DATABASE", "NEXTCLOUD_TRUSTED_DOMAINS")), [])
     run("docker", "run", "-d", "--name", CONTAINERS[0], "--label", OWNER_LABEL + "=" + OWNER, "-p", "127.0.0.1:8080:80",
         "-v", VOLUMES[0] + ":/var/www/html", *nc_env, "nextcloud:34.0.3-apache", quiet=True)
-    is_env = sum((["-e", name] for name in ("IDM_ADMIN_PASSWORD", "OCIS_URL", "OCIS_INSECURE", "PROXY_TLS", "PROXY_ENABLE_BASIC_AUTH", "PROXY_HTTP_ADDR", "OCIS_LOG_LEVEL")), [])
-    mounts = ("-v", VOLUMES[1] + ":/etc/ocis", "-v", VOLUMES[2] + ":/var/lib/ocis")
+    is_env = sum((["-e", name] for name in ("IDM_ADMIN_PASSWORD", "OCIS_URL", "OCIS_INSECURE", "PROXY_TLS", "PROXY_ENABLE_BASIC_AUTH", "PROXY_HTTP_ADDR", "OCIS_LOG_LEVEL", "PROXY_TRANSPORT_TLS_CERT", "PROXY_TRANSPORT_TLS_KEY")), [])
+    mounts = ("-v", VOLUMES[1] + ":/etc/ocis", "-v", VOLUMES[2] + ":/var/lib/ocis", "-v", tls + ":/run/ocs-test-tls:ro")
     run("docker", "run", "--rm", *mounts, *is_env, "owncloud/ocis:8.2.1", "init", quiet=True)
     run("docker", "run", "-d", "--name", CONTAINERS[1], "--label", OWNER_LABEL + "=" + OWNER, "-p", "127.0.0.1:9200:9200",
         *mounts, *is_env, "owncloud/ocis:8.2.1", "server", quiet=True)
     nc = ready("http://127.0.0.1:8080/ocs/v2.php/cloud/capabilities?format=json", "owner", password)
-    ocis = ready("http://127.0.0.1:9200/ocs/v2.php/cloud/capabilities?format=json", "admin", password)
+    ocis = ready("https://localhost:9200/ocs/v2.php/cloud/capabilities?format=json", "admin", password)
     run("docker", "exec", "-u", "www-data", "-e", "OC_PASS", CONTAINERS[0], "php", "occ", "user:add", "--password-from-env", "readonly", quiet=True)
-    drives = get("http://127.0.0.1:9200/graph/v1.0/me/drives", "admin", password)["value"]
+    drives = get("https://localhost:9200/graph/v1.0/me/drives", "admin", password)["value"]
     personal = [drive for drive in drives if drive.get("driveType") == "personal"]
     if len(personal) != 1:
         raise RuntimeError("Expected exactly one owned personal space.")
@@ -102,9 +114,9 @@ def setup():
     export({"OCS_EPHEMERAL_ACCEPTANCE": "1", "OCS_VERSION_TESTS_EXCLUSIVE": "1",
             "TEST_NEXTCLOUD.STANDARDUSER_SERVERURL": "http://127.0.0.1:8080/",
             "TEST_NEXTCLOUD.STANDARDUSER_USERNAME": "owner", "TEST_NEXTCLOUD.STANDARDUSER_PASSWORD": password,
-            "TEST_INFINITESCALE.STANDARDUSER_SERVERURL": "http://127.0.0.1:9200/",
+            "TEST_INFINITESCALE.STANDARDUSER_SERVERURL": "https://localhost:9200/",
             "TEST_INFINITESCALE.STANDARDUSER_USERNAME": "admin", "TEST_INFINITESCALE.STANDARDUSER_PASSWORD": password,
-            "TEST_INFINITESCALE.STANDARDUSER_DAVROOT": "http://127.0.0.1:9200/dav/spaces/" + space + "/",
+            "TEST_INFINITESCALE.STANDARDUSER_DAVROOT": "https://localhost:9200/dav/spaces/" + space + "/",
             "OCS_EPHEMERAL_READONLY_USERNAME": "readonly", "OCS_EPHEMERAL_READONLY_PASSWORD": reader_password})
 
 
@@ -129,6 +141,19 @@ def cleanup():
                 failures.append("Owned " + kind + " cleanup could not be verified: " + name)
     if failures:
         raise RuntimeError("; ".join(failures))
+    tls = os.environ.get("OCS_EPHEMERAL_TLS_DIRECTORY")
+    if tls:
+        import pathlib
+        import shutil
+        directory = pathlib.Path(tls).resolve()
+        owned_root = pathlib.Path(os.environ["RUNNER_TEMP"]).resolve()
+        if directory.parent != owned_root or not directory.name.startswith("ocs-version-tls-"):
+            raise RuntimeError("TLS cleanup target is outside the owned runner scope.")
+        shutil.rmtree(directory)
+        if directory.exists():
+            raise RuntimeError("Temporary TLS material is still present.")
+        run("sudo", "rm", "--", "/usr/local/share/ca-certificates/ocs-version-acceptance.crt", quiet=True)
+        run("sudo", "update-ca-certificates", quiet=True)
     print("Disposable containers and volumes are absent.")
 
 
