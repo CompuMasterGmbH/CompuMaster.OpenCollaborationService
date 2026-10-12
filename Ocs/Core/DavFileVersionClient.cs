@@ -82,7 +82,7 @@ namespace CompuMaster.Ocs.Core
                 ValidateUri(address);
                 var addressPath = CanonicalPath(address);
                 if (SameOrigin(address, root) && addressPath.TrimEnd('/') == rootPath.TrimEnd('/')) { collectionFound = resource.IsCollection; continue; }
-                if (!Within(address, root) || resource.IsCollection) throw new InvalidDataException("A version is outside the selected file's version collection.");
+                if (!Within(address, root) || resource.IsCollection) throw new InvalidDataException("A version is outside the selected file's version collection. Expected DAV path: " + rootPath + "; observed path: " + addressPath + "; collection: " + resource.IsCollection + ".");
                 var relative = addressPath.Substring(rootPath.Length);
                 var versionId = Uri.UnescapeDataString(relative);
                 ValidateId(versionId);
