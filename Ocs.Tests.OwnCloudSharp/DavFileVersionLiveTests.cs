@@ -23,6 +23,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
         [TestCase("OWNCLOUD", DavFileVersionProtocol.OwnCloudServer)]
         public async Task HistoricalContentRestorationAndAdvertisedRemoval(string family, DavFileVersionProtocol protocol)
         {
+            await RoundTrip(family, protocol);
+        }
+
+        internal static async Task RoundTrip(string family, DavFileVersionProtocol protocol, bool legacy = false)
+        {
             if (Environment.GetEnvironmentVariable("OCS_VERSION_TESTS_EXCLUSIVE") != "1")
                 Assert.Ignore("Requires a coordinated exclusive cloud-server window and explicit opt-in.");
             string prefix = "TEST_" + family + ".STANDARDUSER_";
@@ -30,11 +35,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
             string login = Required(prefix + "USERNAME");
             string password = Required(prefix + "PASSWORD");
             var instance = new Uri(server.TrimEnd('/') + "/");
-            Assert.That(instance.Scheme, Is.EqualTo("https"), "Acceptance credentials require HTTPS.");
+            Assert.That(instance.Scheme == "https" || (Environment.GetEnvironmentVariable("OCS_EPHEMERAL_ACCEPTANCE") == "1" && instance.IsLoopback && instance.Scheme == "http"), Is.True, "Acceptance credentials require HTTPS except for explicitly owned loopback-only CI containers.");
             Assert.That(instance.AbsolutePath.Contains("remote.php"), Is.False, "SERVERURL must be the instance root.");
             using (var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3)))
             using (var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }))
-            using (var transport = new WebDavClient(new WebDavClientParams { Credentials = new NetworkCredential(login, password) }))
+            using (var transport = new WebDavClient(http))
             {
                 http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(login + ":" + password)));
                 http.DefaultRequestHeaders.Add("OCS-APIRequest", "true");
@@ -46,8 +51,13 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
                 Assert.That(Capability(fileCapabilities?.Element("versioning")), Is.True, "The test server must advertise versioning.");
                 bool? removal = Capability(fileCapabilities?.Element("version_deletion"));
                 TestContext.Out.WriteLine(family + " server version: " + (string)capabilities.Element("version")?.Element("string") + "; advertised deletion: " + removal);
-                var dav = new Uri(instance, "remote.php/dav/");
-                var files = new Uri(dav, "files/" + Uri.EscapeDataString(userId) + "/");
+                var suppliedFiles = protocol == DavFileVersionProtocol.OwnCloudInfiniteScale
+                    ? new Uri(Required(prefix + "DAVROOT"))
+                    : new Uri(instance, legacy ? "remote.php/webdav/" : "remote.php/dav/files/" + Uri.EscapeDataString(userId) + "/");
+                Assert.That(suppliedFiles.GetLeftPart(UriPartial.Authority), Is.EqualTo(instance.GetLeftPart(UriPartial.Authority)), "Configured current-file endpoint must remain on this authenticated instance.");
+                var endpoint = DavFileVersionEndpoint.Resolve(suppliedFiles, protocol, userId);
+                var dav = endpoint.DavRoot;
+                var files = endpoint.FilesRoot;
                 // This fixture owns this exact scope; configured permanent DMS roots remain untouched.
                 var root = new Uri(files, "ZZZ_UnitTests_OcsVersions/");
                 var file = new Uri(root, "DavFileVersionLiveTests.RoundTrip.txt");
