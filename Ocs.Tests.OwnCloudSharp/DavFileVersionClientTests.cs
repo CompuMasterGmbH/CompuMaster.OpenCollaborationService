@@ -291,6 +291,19 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
             }
         }
 
+        [TestCase(false, 2), TestCase(true, 0)]
+        public void OnlyInfiniteScaleAcceptsTheMetadataFileCollectionRoot(bool empty, int count)
+        {
+            var wire = new Wire { Protocol = DavFileVersionProtocol.OwnCloudInfiniteScale, VersionCollectionAtMetaFile = true, Empty = empty };
+            using (var http = new HttpClient(wire))
+            using (var dav = new WebDavClient(http))
+            {
+                Assert.That(new DavFileVersionClient(dav, Root, wire.Protocol).ListVersions(FileUri).Count, Is.EqualTo(count));
+                wire.Protocol = DavFileVersionProtocol.OwnCloudServer;
+                Assert.Throws<InvalidDataException>(() => new DavFileVersionClient(dav, Root, wire.Protocol).ListVersions(FileUri));
+            }
+        }
+
         internal sealed class Request
         {
             internal string Method, Path, Destination, Condition, Overwrite;
@@ -306,6 +319,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
             internal bool IncludeCurrentVersion;
             internal Uri CurrentFile = FileUri;
             internal bool LiteralReservedHrefs;
+            internal bool VersionCollectionAtMetaFile;
             internal string VersionRoot => Root.AbsolutePath + (Protocol == DavFileVersionProtocol.Nextcloud ? "versions/protocol%20id/versions/" + Uri.EscapeDataString(FileId ?? "") + "/" : "meta/" + Uri.EscapeDataString(FileId ?? "") + "/v/");
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
             {
@@ -337,7 +351,8 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
                         IncludeCurrentVersion ? new XElement(d + "getlastmodified", "Mon, 30 Mar 2020 10:33:27 GMT") : null)));
                 else
                 {
-                    root.Add(response(VersionRoot, new XElement("properties", new XElement(d + "resourcetype", new XElement(d + "collection")))));
+                    root.Add(response(VersionCollectionAtMetaFile ? new Uri(Root, "meta/" + Uri.EscapeDataString(FileId) + "/").AbsolutePath : VersionRoot,
+                        new XElement("properties", new XElement(d + "resourcetype", new XElement(d + "collection")))));
                     if (IncludeCurrentVersion)
                         root.Add(response(VersionRoot + "current-revision", new XElement("properties", new XElement(d + "resourcetype"), new XElement(d + "getlastmodified", "Mon, 30 Mar 2020 10:33:27 GMT"))));
                     if (!Empty)
