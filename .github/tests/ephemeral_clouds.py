@@ -83,6 +83,7 @@ def setup():
                       PROXY_HTTP_ADDR="0.0.0.0:9200", OCIS_LOG_LEVEL="error", OC_PASS=reader_password)
     # The built-in IDP requires TLS when no TLS reverse proxy is present.
     tls = tempfile.mkdtemp(prefix="ocs-version-tls-", dir=os.environ["RUNNER_TEMP"])
+    export({"OCS_EPHEMERAL_TLS_DIRECTORY": tls})
     os.chmod(tls, 0o755)
     cert, key = os.path.join(tls, "server.crt"), os.path.join(tls, "server.key")
     run("openssl", "req", "-x509", "-nodes", "-newkey", "rsa:2048", "-days", "1", "-subj", "/CN=localhost",
@@ -91,7 +92,6 @@ def setup():
     run("sudo", "cp", cert, "/usr/local/share/ca-certificates/ocs-version-acceptance.crt", quiet=True)
     run("sudo", "update-ca-certificates", quiet=True)
     os.environ.update(PROXY_TRANSPORT_TLS_CERT="/run/ocs-test-tls/server.crt", PROXY_TRANSPORT_TLS_KEY="/run/ocs-test-tls/server.key")
-    export({"OCS_EPHEMERAL_TLS_DIRECTORY": tls})
     nc_env = sum((["-e", name] for name in ("NEXTCLOUD_ADMIN_USER", "NEXTCLOUD_ADMIN_PASSWORD", "SQLITE_DATABASE", "NEXTCLOUD_TRUSTED_DOMAINS")), [])
     run("docker", "run", "-d", "--name", CONTAINERS[0], "--label", OWNER_LABEL + "=" + OWNER, "-p", "127.0.0.1:8080:80",
         "-v", VOLUMES[0] + ":/var/www/html", *nc_env, "nextcloud:34.0.3-apache", quiet=True)
