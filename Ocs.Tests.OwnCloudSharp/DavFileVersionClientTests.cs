@@ -274,6 +274,23 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
             }
         }
 
+        [Test]
+        public void InfiniteScaleReservedResourceIdSpellingsReferToTheSameFileAndVersions()
+        {
+            var current = new Uri(Root, "spaces/storage%24space/report.txt");
+            var wire = new Wire { Protocol = DavFileVersionProtocol.OwnCloudInfiniteScale,
+                CurrentFile = current, FileId = "storage$space!file", LiteralReservedHrefs = true };
+            using (var http = new HttpClient(wire))
+            using (var dav = new WebDavClient(http))
+            {
+                var client = new DavFileVersionClient(dav, Root, wire.Protocol);
+                var version = client.ListVersions(current)[0];
+                Assert.That(version.FileId, Is.EqualTo(wire.FileId));
+                client.RestoreVersion(version);
+                Assert.That(wire.Requests.Last().Destination, Is.EqualTo(current.AbsoluteUri));
+            }
+        }
+
         internal sealed class Request
         {
             internal string Method, Path, Destination, Condition, Overwrite;
@@ -287,7 +304,9 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
             internal readonly List<Request> Requests = new List<Request>();
             internal TrackedStream ResponseStream;
             internal bool IncludeCurrentVersion;
-            internal string VersionRoot => Root.AbsolutePath + (Protocol == DavFileVersionProtocol.Nextcloud ? "versions/protocol%20id/versions/space%21file-id/" : "meta/space%21file-id/v/");
+            internal Uri CurrentFile = FileUri;
+            internal bool LiteralReservedHrefs;
+            internal string VersionRoot => Root.AbsolutePath + (Protocol == DavFileVersionProtocol.Nextcloud ? "versions/protocol%20id/versions/" + Uri.EscapeDataString(FileId ?? "") + "/" : "meta/" + Uri.EscapeDataString(FileId ?? "") + "/v/");
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
             {
                 token.ThrowIfCancellationRequested();
@@ -295,7 +314,7 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
                     Destination = Header(request, "Destination"), Condition = Header(request, "If"), Overwrite = Header(request, "Overwrite") });
                 if (request.Method.Method == "PROPFIND")
                 {
-                    bool file = request.RequestUri == FileUri;
+                    bool file = request.RequestUri == CurrentFile;
                     int status = file ? IdentityStatus : ListStatus;
                     return Task.FromResult(new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent(status == 207 ? Xml(file) : "DAV failure") });
                 }
@@ -310,11 +329,11 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
             private string Xml(bool file)
             {
                 XNamespace d = "DAV:", oc = "http://owncloud.org/ns", nc = "http://nextcloud.org/ns";
-                Func<string, XElement, XElement> response = (href, prop) => new XElement(d + "response", new XElement(d + "href", href),
+                Func<string, XElement, XElement> response = (href, prop) => new XElement(d + "response", new XElement(d + "href", LiteralReservedHrefs ? href.Replace("%24", "$").Replace("%21", "!") : href),
                     new XElement(d + "propstat", new XElement(d + "prop", prop.Elements()), new XElement(d + "status", "HTTP/1.1 200 OK")));
                 var root = new XElement(d + "multistatus");
                 if (file)
-                    root.Add(response(FileUri.AbsolutePath, new XElement("properties", new XElement(oc + "fileid", FileId), new XElement(d + "getetag", "\"current-tag\""), new XElement(d + "resourcetype"),
+                    root.Add(response(CurrentFile.AbsolutePath, new XElement("properties", new XElement(oc + "fileid", FileId), new XElement(d + "getetag", "\"current-tag\""), new XElement(d + "resourcetype"),
                         IncludeCurrentVersion ? new XElement(d + "getlastmodified", "Mon, 30 Mar 2020 10:33:27 GMT") : null)));
                 else
                 {

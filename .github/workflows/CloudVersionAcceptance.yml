@@ -36,12 +36,15 @@ jobs:
       - name: Build and isolated regressions
         run: dotnet test Ocs.Tests.OwnCloudSharp/CompuMaster.Ocs.OwnCloudSharpTests.csproj -c CI_CD -f net8.0 --filter 'FullyQualifiedName~DavFileVersionClientTests|FullyQualifiedName~DavFileVersionEndpointTests|FullyQualifiedName~DavChunkUploadClientTests|FullyQualifiedName~OcsResultDeserialization' --logger 'trx;LogFileName=isolated.trx' --results-directory test-results-ephemeral
       - name: Provision independent loopback-only clouds
+        id: provision
         run: python .github/tests/ephemeral_clouds.py setup
       - name: Infinite Scale, legacy paths and read-only acceptance
         run: dotnet test Ocs.Tests.OwnCloudSharp/CompuMaster.Ocs.OwnCloudSharpTests.csproj -c CI_CD -f net8.0 --no-build --no-restore --filter 'FullyQualifiedName~EphemeralCloudVersionTests&FullyQualifiedName!~DisabledNextcloud' --logger 'trx;LogFileName=enabled.trx' --results-directory test-results-ephemeral
       - name: Disable versioning on the owned Nextcloud only
+        if: ${{ always() && !cancelled() && steps.provision.outcome == 'success' }}
         run: python .github/tests/ephemeral_clouds.py disable-versioning
       - name: Disabled-versioning acceptance
+        if: ${{ always() && !cancelled() && steps.provision.outcome == 'success' }}
         run: dotnet test Ocs.Tests.OwnCloudSharp/CompuMaster.Ocs.OwnCloudSharpTests.csproj -c CI_CD -f net8.0 --no-build --no-restore --filter 'FullyQualifiedName~EphemeralCloudVersionTests.DisabledNextcloud' --logger 'trx;LogFileName=disabled.trx' --results-directory test-results-ephemeral
       - name: Remove and verify all owned containers and volumes
         if: always()

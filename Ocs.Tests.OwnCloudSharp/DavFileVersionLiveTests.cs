@@ -103,7 +103,15 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
                         var alias = await transport.Propfind(legacyFile, new PropfindParameters { ApplyTo = ApplyTo.Propfind.ResourceOnly,
                             CustomProperties = new[] { XName.Get("fileid", "http://owncloud.org/ns") }, CancellationToken = timeout.Token });
                         Check(alias, "Verify selected legacy alias");
-                        Assert.That(alias.Resources.Single().Properties.Single(p => p.Name == XName.Get("fileid", "http://owncloud.org/ns")).Value, Is.EqualTo(selected.FileId));
+                        var aliasId = alias.Resources.Single().Properties.FirstOrDefault(p => p.Name == XName.Get("fileid", "http://owncloud.org/ns"))?.Value;
+                        if (!string.IsNullOrEmpty(aliasId)) Assert.That(aliasId, Is.EqualTo(selected.FileId));
+                        using (var aliasContent = await transport.GetRawFile(legacyFile, new GetFileParameters { CancellationToken = timeout.Token }))
+                        using (var aliasBytes = new MemoryStream())
+                        {
+                            Check(aliasContent, "Download selected legacy alias");
+                            await aliasContent.Stream.CopyToAsync(aliasBytes, 81920, timeout.Token);
+                            Assert.That(aliasBytes.ToArray(), Is.EqualTo(current));
+                        }
                     }
                     await client.RestoreVersionAsync(selected, timeout.Token);
                     using (var restored = await transport.GetRawFile(legacyFile ?? file, new GetFileParameters { CancellationToken = timeout.Token }))

@@ -74,14 +74,16 @@ namespace CompuMaster.Ocs.Core
             Check(response, "Version listing failed.");
             var result = new List<DavFileVersion>();
             var seen = new HashSet<string>(StringComparer.Ordinal);
+            var rootPath = CanonicalPath(root);
             bool collectionFound = false;
             foreach (var resource in response.Resources)
             {
                 var address = new Uri(davRoot, resource.Uri);
                 ValidateUri(address);
-                if (address.AbsoluteUri.TrimEnd('/') == root.AbsoluteUri.TrimEnd('/')) { collectionFound = resource.IsCollection; continue; }
+                var addressPath = CanonicalPath(address);
+                if (SameOrigin(address, root) && addressPath.TrimEnd('/') == rootPath.TrimEnd('/')) { collectionFound = resource.IsCollection; continue; }
                 if (!Within(address, root) || resource.IsCollection) throw new InvalidDataException("A version is outside the selected file's version collection.");
-                var relative = address.AbsoluteUri.Substring(root.AbsoluteUri.Length);
+                var relative = addressPath.Substring(rootPath.Length);
                 var versionId = Uri.UnescapeDataString(relative);
                 ValidateId(versionId);
                 if (relative.Contains("/") || !seen.Add(versionId)) throw new InvalidDataException("A version ID is nested or duplicated.");
@@ -191,7 +193,11 @@ namespace CompuMaster.Ocs.Core
             Check(response, "Current file identity lookup failed.");
             if (response.Resources.Count != 1) throw new InvalidDataException("The current file is missing or ambiguous.");
             var item = response.Resources.Single();
-            if (item == null || item.IsCollection || new Uri(davRoot, item.Uri) != file)
+            if (item == null || item.IsCollection)
+                throw new InvalidDataException("The current file is missing or ambiguous.");
+            var address = new Uri(davRoot, item.Uri);
+            ValidateUri(address);
+            if (!SameOrigin(address, file) || CanonicalPath(address) != CanonicalPath(file))
                 throw new InvalidDataException("The current file is missing or ambiguous.");
             var id = Text(item, Oc + "fileid") ?? Text(item, Oc + "id");
             if (string.IsNullOrEmpty(id)) throw new InvalidDataException("The server did not supply a stable file ID.");
@@ -237,6 +243,17 @@ namespace CompuMaster.Ocs.Core
             if (!value.IsAbsoluteUri || (value.Scheme != "https" && value.Scheme != "http") || value.UserInfo.Length != 0 || value.Query.Length != 0 || value.Fragment.Length != 0)
                 throw new ArgumentException("An absolute HTTP(S) URI without user information, query or fragment is required.");
         }
-        private static bool Within(Uri value, Uri root) => value.Scheme == root.Scheme && value.IdnHost == root.IdnHost && value.Port == root.Port && value.AbsolutePath.StartsWith(root.AbsolutePath, StringComparison.Ordinal);
+        private static bool SameOrigin(Uri value, Uri root) => value.Scheme == root.Scheme && value.IdnHost == root.IdnHost && value.Port == root.Port;
+        private static bool Within(Uri value, Uri root) => SameOrigin(value, root) && CanonicalPath(value).StartsWith(CanonicalPath(root), StringComparison.Ordinal);
+        private static string CanonicalPath(Uri value)
+        {
+            // Servers may return literal '$'/'!' for the same opaque IDs sent percent-encoded.
+            // Normalize each segment independently; encoded separators must never cross boundaries.
+            return string.Join("/", value.AbsolutePath.Split('/').Select(segment => {
+                var decoded = Uri.UnescapeDataString(segment);
+                if (decoded.Length != 0) ValidateId(decoded);
+                return Uri.EscapeDataString(decoded);
+            }));
+        }
     }
 }
