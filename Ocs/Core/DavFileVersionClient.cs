@@ -75,6 +75,9 @@ namespace CompuMaster.Ocs.Core
             var result = new List<DavFileVersion>();
             var seen = new HashSet<string>(StringComparer.Ordinal);
             var rootPath = CanonicalPath(root);
+            // Infinite Scale's versions handler returns the metadata-file collection as
+            // the root row, while its historical children remain below that file's /v/.
+            var infiniteScaleCollection = protocol == DavFileVersionProtocol.OwnCloudInfiniteScale ? CanonicalPath(new Uri(root, "../")).TrimEnd('/') : null;
             bool collectionFound = false;
             foreach (var resource in response.Resources)
             {
@@ -82,6 +85,11 @@ namespace CompuMaster.Ocs.Core
                 ValidateUri(address);
                 var addressPath = CanonicalPath(address);
                 if (SameOrigin(address, root) && addressPath.TrimEnd('/') == rootPath.TrimEnd('/')) { collectionFound = resource.IsCollection; continue; }
+                if (infiniteScaleCollection != null && SameOrigin(address, root) && addressPath.TrimEnd('/') == infiniteScaleCollection && resource.IsCollection)
+                {
+                    collectionFound = true;
+                    continue;
+                }
                 if (!Within(address, root) || resource.IsCollection) throw new InvalidDataException("A version is outside the selected file's version collection. Expected DAV path: " + rootPath + "; observed path: " + addressPath + "; collection: " + resource.IsCollection + ".");
                 var relative = addressPath.Substring(rootPath.Length);
                 var versionId = Uri.UnescapeDataString(relative);
@@ -130,7 +138,7 @@ namespace CompuMaster.Ocs.Core
 
         /// <summary>Restores historical content to the same current file identity.</summary>
         /// <param name="version">A snapshot listed by this client.</param>
-        /// <remarks>Rejects a replaced or missing current file. Restoration changes current content; it does not rename a file or remove unrelated versions. Refresh current metadata and history afterwards. A transport failure may leave an ambiguous server result and must not be replayed automatically.</remarks>
+        /// <remarks>Rejects a replaced or missing current file. Restoration changes current content; it does not rename a file or remove unrelated versions. Refresh current metadata and history afterwards. Classic COPY uses a destination ETag condition. Infinite Scale restores the resource ID in the version namespace; its 8.2 handler does not enforce the supplied destination ETag condition, so concurrent content updates cannot be guarded atomically. A transport failure may leave an ambiguous server result and must not be replayed automatically.</remarks>
         /// <exception cref="InvalidOperationException">The current file identity changed since listing.</exception>
         /// <exception cref="ResponseException">The server rejects restoration.</exception>
         public void RestoreVersion(DavFileVersion version) => RestoreVersionAsync(version).GetAwaiter().GetResult();
