@@ -14,7 +14,8 @@ def expression(line):
 def evaluate(value, isolated, cloud):
     # Only this workflow's literal/boolean expressions are supported, never arbitrary code.
     value = value.replace("inputs.isolated_only", str(isolated)).replace("inputs.cloud_versions_only", str(cloud))
-    value = value.replace("&&", " and ").replace("||", " or ").replace("!", " not ").strip()
+    value = value.replace("&&", " and ").replace("||", " or ")
+    value = re.sub(r"!(?=(?:True|False)\b)", " not ", value).strip()
     tree = ast.parse(value, mode="eval")
     allowed = (ast.Expression, ast.BoolOp, ast.UnaryOp, ast.And, ast.Or, ast.Not, ast.Constant)
     if any(not isinstance(node, allowed) for node in ast.walk(tree)):
@@ -31,7 +32,7 @@ class WorkflowModes(unittest.TestCase):
                 with self.subTest(isolated=isolated, cloud=cloud):
                     enabled = evaluate(opt_in, isolated, cloud)
                     selected = evaluate(selection, isolated, cloud)
-                    terms = [term.split("~", 1)[1] for term in selected.split("|")]
+                    terms = [term.split("&", 1)[0].split("~", 1)[1] for term in selected.split("|")]
                     live_selected = any(term in "CompuMaster.Ocs.OwnCloudSharpTests.DavFileVersionLiveTests" for term in terms)
                     self.assertEqual(enabled, "1" if cloud and not isolated else "0")
                     if isolated:
@@ -39,6 +40,9 @@ class WorkflowModes(unittest.TestCase):
                     elif cloud:
                         self.assertTrue(live_selected, "Cloud dispatch must actually verify versions")
                     self.assertTrue(any(term in "CompuMaster.Ocs.OwnCloudSharpTests.DavFileVersionClientTests" for term in terms))
+                    self.assertTrue(any(term in "CompuMaster.Ocs.OwnCloudSharpTests.DavFileVersionEndpointTests" for term in terms))
+                    if not isolated and not cloud:
+                        self.assertIn("TestCategory!=EphemeralCloudVersions", selected)
 
 
 if __name__ == "__main__":

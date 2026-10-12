@@ -12,6 +12,8 @@ import urllib.request
 
 CONTAINERS = ("ocs-versions-nextcloud", "ocs-versions-is")
 VOLUMES = ("ocs-versions-nextcloud-data", "ocs-versions-is-config", "ocs-versions-is-data")
+OWNER_LABEL = "ocs.version-acceptance"
+OWNER = os.environ.get("GITHUB_RUN_ID", "local") + "/" + os.environ.get("GITHUB_RUN_ATTEMPT", "0")
 
 
 def run(*args, quiet=False):
@@ -32,7 +34,8 @@ def get(url, user, password):
 
 
 def ready(url, user, password):
-    for _ in range(90):
+    deadline = time.monotonic() + 180
+    while time.monotonic() < deadline:
         try:
             data = get(url, user, password)
             if data.get("ocs", {}).get("meta", {}).get("statuscode") in (100, 200):
@@ -62,7 +65,7 @@ def setup():
         found = subprocess.run(("docker", "volume", "inspect", name), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if found.returncode == 0:
             raise RuntimeError("An owned volume already exists; refusing uncertain setup.")
-        run("docker", "volume", "create", name, quiet=True)
+        run("docker", "volume", "create", "--label", OWNER_LABEL + "=" + OWNER, name, quiet=True)
     password = "Test-" + secrets.token_hex(24)
     reader_password = "Reader-" + secrets.token_hex(24)
     print("::add-mask::" + password, flush=True)
@@ -73,12 +76,12 @@ def setup():
                       OCIS_INSECURE="true", PROXY_TLS="false", PROXY_ENABLE_BASIC_AUTH="true",
                       PROXY_HTTP_ADDR="0.0.0.0:9200", OCIS_LOG_LEVEL="error", OC_PASS=reader_password)
     nc_env = sum((["-e", name] for name in ("NEXTCLOUD_ADMIN_USER", "NEXTCLOUD_ADMIN_PASSWORD", "SQLITE_DATABASE", "NEXTCLOUD_TRUSTED_DOMAINS")), [])
-    run("docker", "run", "-d", "--name", CONTAINERS[0], "-p", "127.0.0.1:8080:80",
+    run("docker", "run", "-d", "--name", CONTAINERS[0], "--label", OWNER_LABEL + "=" + OWNER, "-p", "127.0.0.1:8080:80",
         "-v", VOLUMES[0] + ":/var/www/html", *nc_env, "nextcloud:34.0.3-apache", quiet=True)
     is_env = sum((["-e", name] for name in ("IDM_ADMIN_PASSWORD", "OCIS_URL", "OCIS_INSECURE", "PROXY_TLS", "PROXY_ENABLE_BASIC_AUTH", "PROXY_HTTP_ADDR", "OCIS_LOG_LEVEL")), [])
     mounts = ("-v", VOLUMES[1] + ":/etc/ocis", "-v", VOLUMES[2] + ":/var/lib/ocis")
     run("docker", "run", "--rm", *mounts, *is_env, "owncloud/ocis:8.2.1", "init", quiet=True)
-    run("docker", "run", "-d", "--name", CONTAINERS[1], "-p", "127.0.0.1:9200:9200",
+    run("docker", "run", "-d", "--name", CONTAINERS[1], "--label", OWNER_LABEL + "=" + OWNER, "-p", "127.0.0.1:9200:9200",
         *mounts, *is_env, "owncloud/ocis:8.2.1", "server", quiet=True)
     nc = ready("http://127.0.0.1:8080/ocs/v2.php/cloud/capabilities?format=json", "owner", password)
     ocis = ready("http://127.0.0.1:9200/ocs/v2.php/cloud/capabilities?format=json", "admin", password)
@@ -101,14 +104,26 @@ def setup():
 
 
 def cleanup():
-    for name in CONTAINERS:
-        run("docker", "rm", "-f", name, quiet=True) if subprocess.run(("docker", "container", "inspect", name), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0 else None
-    for name in VOLUMES:
-        run("docker", "volume", "rm", name, quiet=True) if subprocess.run(("docker", "volume", "inspect", name), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0 else None
+    failures = []
+    for kind, names in (("container", CONTAINERS), ("volume", VOLUMES)):
+        for name in names:
+            result = subprocess.run(("docker", kind, "inspect", name), capture_output=True)
+            if result.returncode != 0:
+                continue
+            value = json.loads(result.stdout)[0]
+            labels = value.get("Config", {}).get("Labels", {}) if kind == "container" else value.get("Labels", {})
+            if (labels or {}).get(OWNER_LABEL) != OWNER:
+                failures.append("Refused to remove unowned " + kind + ": " + name)
+                continue
+            args = ("docker", "rm", "-f", name) if kind == "container" else ("docker", "volume", "rm", name)
+            if subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0:
+                failures.append("Failed to remove owned " + kind + ": " + name)
     for kind, names in (("container", CONTAINERS), ("volume", VOLUMES)):
         for name in names:
             if subprocess.run(("docker", kind, "inspect", name), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
-                raise RuntimeError("Owned " + kind + " cleanup could not be verified.")
+                failures.append("Owned " + kind + " cleanup could not be verified: " + name)
+    if failures:
+        raise RuntimeError("; ".join(failures))
     print("Disposable containers and volumes are absent.")
 
 
