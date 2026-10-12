@@ -162,6 +162,13 @@ if __name__ == "__main__":
         setup()
     elif sys.argv[1:] == ["disable-versioning"]:
         run("docker", "exec", "-u", "www-data", CONTAINERS[0], "php", "occ", "app:disable", "files_versions", quiet=True)
+        # occ updates persistent app configuration, but existing PHP workers can retain
+        # cached enabled-app/capability state. Restart only this runner-owned container.
+        run("docker", "restart", "--time", "10", CONTAINERS[0], quiet=True)
+        data = ready("http://127.0.0.1:8080/ocs/v2.php/cloud/capabilities?format=json",
+                     os.environ["TEST_NEXTCLOUD.STANDARDUSER_USERNAME"], os.environ["TEST_NEXTCLOUD.STANDARDUSER_PASSWORD"])
+        if data["ocs"]["data"]["capabilities"].get("files", {}).get("versioning") is True:
+            raise RuntimeError("Owned Nextcloud still advertises versioning after disabling the app and restarting.")
     elif sys.argv[1:] == ["cleanup"]:
         cleanup()
     else:
