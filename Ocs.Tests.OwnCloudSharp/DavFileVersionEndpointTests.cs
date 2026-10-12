@@ -31,6 +31,19 @@ namespace CompuMaster.Ocs.OwnCloudSharpTests
             Assert.Throws<NotSupportedException>(() => DavFileVersionEndpoint.Resolve(uri, DavFileVersionProtocol.OwnCloudServer));
         }
 
+        [TestCase("remote.php/webdav/webdav/Reports/", "remote.php/dav/", "files/auth-id/webdav/Reports/", 1)]
+        [TestCase("remote.php/webdav/Folder/dav/files/other/", "remote.php/dav/", "files/auth-id/Folder/dav/files/other/", 1)]
+        [TestCase("webdav/Folder/dav/spaces/other/", "dav/", "files/auth-id/Folder/dav/spaces/other/", 3)]
+        [TestCase("dav/files/user/Folder/dav/files/other/", "dav/", "files/user/Folder/dav/files/other/", 1)]
+        [TestCase("dav/spaces/space-id/Folder/dav/spaces/other/", "dav/", "spaces/space-id/Folder/dav/spaces/other/", 3)]
+        [TestCase("remote.php/dav/files/user/Folder/webdav/", "remote.php/dav/", "files/user/Folder/webdav/", 2)]
+        public void EndpointShapedSubfoldersRemainInsideTheSelectedRoot(string path, string root, string selected, int protocol)
+        {
+            var endpoint = DavFileVersionEndpoint.Resolve(new Uri("https://fixture.test/prefix/" + path), (DavFileVersionProtocol)protocol, "auth-id");
+            Assert.That(endpoint.DavRoot.AbsoluteUri, Is.EqualTo("https://fixture.test/prefix/" + root));
+            Assert.That(endpoint.FilesRoot.AbsoluteUri, Is.EqualTo(endpoint.DavRoot + selected));
+        }
+
         [TestCase(1), TestCase(2), TestCase(3)]
         public void LegacyNeverGuessesUserIdentity(int protocol)
         {
