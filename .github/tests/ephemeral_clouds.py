@@ -35,15 +35,20 @@ def get(url, user, password):
 
 def ready(url, user, password):
     deadline = time.monotonic() + 180
+    last = "no response"
     while time.monotonic() < deadline:
         try:
             data = get(url, user, password)
-            if data.get("ocs", {}).get("meta", {}).get("statuscode") in (100, 200):
+            status = str(data.get("ocs", {}).get("meta", {}).get("statuscode"))
+            if status in ("100", "200"):
                 return data
-        except (urllib.error.URLError, ValueError, TimeoutError, ConnectionError, http.client.HTTPException):
-            pass
+            last = "OCS status " + status
+        except (urllib.error.URLError, ValueError, TimeoutError, ConnectionError, http.client.HTTPException) as error:
+            last = "HTTP status " + str(error.code) if isinstance(error, urllib.error.HTTPError) else type(error).__name__
         time.sleep(2)
-    raise RuntimeError("Disposable cloud did not become ready; no shared server was contacted.")
+    for name in CONTAINERS:
+        subprocess.run(("docker", "inspect", "--format", "{{.State.Status}} {{.State.ExitCode}}", name), check=False)
+    raise RuntimeError("Disposable cloud did not become ready: " + last + "; no shared server was contacted.")
 
 
 def export(values):

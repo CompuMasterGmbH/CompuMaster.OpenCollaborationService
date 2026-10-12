@@ -44,8 +44,10 @@ namespace CompuMaster.Ocs.Core
             if (pathStart >= 0) ValidatePath(original.Substring(pathStart));
             if (authenticatedUserId != null) ValidateSegment(authenticatedUserId);
             var path = filesRoot.AbsolutePath;
-            var direct = Regex.Match(path, @"^(.*/(?:remote\.php/)?dav/)(files|spaces)/([^/]+)(/.*)?$", RegexOptions.IgnoreCase);
-            if (direct.Success)
+            var direct = Regex.Match(path, @"^(.*?/(?:remote\.php/)?dav/)(files|spaces)/([^/]+)(/.*)?$", RegexOptions.IgnoreCase);
+            var legacy = Regex.Match(path, @"^(.*?/)(remote\.php/)?webdav(/.*)?$", RegexOptions.IgnoreCase);
+            var directMarker = direct.Success ? direct.Groups[1].Value.Length - (direct.Groups[1].Value.EndsWith("/remote.php/dav/", StringComparison.OrdinalIgnoreCase) ? "/remote.php/dav/".Length : "/dav/".Length) : int.MaxValue;
+            if (direct.Success && (!legacy.Success || directMarker < legacy.Groups[1].Value.Length - 1))
             {
                 var id = Uri.UnescapeDataString(direct.Groups[3].Value);
                 ValidateSegment(id);
@@ -55,7 +57,6 @@ namespace CompuMaster.Ocs.Core
                 return new DavFileVersionEndpoint(new Uri(filesRoot.GetLeftPart(UriPartial.Authority) + direct.Groups[1].Value),
                     new Uri(filesRoot.AbsoluteUri.TrimEnd('/') + "/"), userId);
             }
-            var legacy = Regex.Match(path, @"^(.*/)(remote\.php/)?webdav(/.*)?$", RegexOptions.IgnoreCase);
             if (!legacy.Success || authenticatedUserId == null)
                 throw new NotSupportedException("Legacy DAV version access requires an authenticated protocol user ID.");
             var root = new Uri(filesRoot.GetLeftPart(UriPartial.Authority) + legacy.Groups[1].Value + legacy.Groups[2].Value + "dav/");
