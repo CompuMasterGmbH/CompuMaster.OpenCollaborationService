@@ -29,7 +29,10 @@ namespace CompuMaster.Ocs.Types
 
 			node = data.Element(XName.Get("permissions"));
 			if (node != null)
+			{
 				this.Permissions = (CompuMaster.Ocs.Core.OcsPermission)Convert.ToInt32(node.Value);
+				this.PermissionsAvailable = true;
+			}
 
 			node = data.Element(XName.Get("expiration"));
 			if (node != null && !String.IsNullOrEmpty(node.Value))
@@ -134,6 +137,9 @@ namespace CompuMaster.Ocs.Types
 		/// The permissions granted on the share
 		/// </summary>
 		public CompuMaster.Ocs.Core.OcsPermission Permissions { get; set; }
+        /// <summary>Gets whether the server supplied the permission field for this grant.</summary>
+        /// <remarks>A missing field differs from a supplied zero. Setting Permissions later does not change this wire-metadata indicator.</remarks>
+        public bool PermissionsAvailable { get; private set; }
 		/// <summary>
 		/// Advanced properties of share
 		/// </summary>
