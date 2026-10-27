@@ -872,6 +872,24 @@ namespace CompuMaster.Ocs
 
             return OcsDeserializationTools.GetShareList(response.Content);
         }
+        /// <summary>Retrieves shares received by the authenticated user.</summary>
+        /// <param name="path">The optional recipient-visible file or folder path; an empty value requests all received shares.</param>
+        /// <returns>The received grants, including separate sharing-user and file-owner metadata when supplied by the server.</returns>
+        /// <remarks>Requires server support for shared_with_me. TargetPath is the recipient's mount path. Permissions describe each grant, not the combined effective access. Inherited access may require matching grants on parent folders.</remarks>
+        public List<Share> GetReceivedShares(string path = "")
+        {
+            var request = new RestRequest(GetOcsPath(ocsServiceShare, "shares"), Method.Get);
+            request.AddHeader("Accept", "text/xml, application/xml");
+            request.AddHeader("OCS-APIREQUEST", "true");
+            request.AddQueryParameter("shared_with_me", "true");
+            if (!string.IsNullOrEmpty(path)) request.AddQueryParameter("path", path);
+            var response = rest.ExecuteAsync(request).Result;
+            OcsDeserializationTools.CheckOcsStatus(response);
+            var data = XDocument.Parse(response.Content).Root?.Element("data");
+            if (data == null || data.Elements().Any(entry => entry.Name != "element" || entry.Element("share_type") == null))
+                throw new InvalidDataException("Received-sharing response did not contain a valid share list.");
+            return OcsDeserializationTools.GetShareList(response.Content);
+        }
         #endregion
 
         #region Users
